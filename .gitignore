@@ -12,6 +12,7 @@ dist
 dist-ssr
 dev-dist
 functions/lib
+.firebase
 *.local
 
 # Editor directories and files
