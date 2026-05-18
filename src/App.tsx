@@ -80,6 +80,22 @@ const defaultHabit: NewHabitInput = {
   timerMinutes: 10,
 }
 
+function habitToInput(habit: Habit | null): NewHabitInput {
+  if (!habit) {
+    return { ...defaultHabit }
+  }
+
+  return {
+    name: habit.name,
+    icon: habit.icon,
+    color: habit.color,
+    reminderEnabled: habit.reminderEnabled,
+    reminderTime: habit.reminderTime,
+    timerEnabled: habit.timerEnabled,
+    timerMinutes: habit.timerMinutes,
+  }
+}
+
 interface ActiveTimer {
   habitId: string
   habitName: string
@@ -326,6 +342,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
 
       {isSheetOpen && (
         <HabitSheet
+          key={editingHabit?.id ?? 'new-habit'}
           habit={editingHabit}
           onClose={() => {
             setIsSheetOpen(false)
@@ -777,8 +794,9 @@ function HabitSheet({
   onClose: () => void
   onSave: (input: NewHabitInput) => Promise<void>
 }) {
-  const [input, setInput] = useState<NewHabitInput>(habit ?? defaultHabit)
+  const [input, setInput] = useState<NewHabitInput>(() => habitToInput(habit))
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const canSave = input.name.trim().length > 0
 
   return (
@@ -790,8 +808,12 @@ function HabitSheet({
           if (!canSave) return
 
           setSaving(true)
+          setSaveError(null)
           try {
             await onSave(input)
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Could not save this habit right now.'
+            setSaveError(message)
           } finally {
             setSaving(false)
           }
@@ -815,6 +837,8 @@ function HabitSheet({
             onChange={(event) => setInput((current) => ({ ...current, name: event.target.value }))}
           />
         </label>
+
+        {saveError && <InlineMessage tone="warning" message={saveError} />}
 
         <div className="picker-group">
           <span>Icon</span>

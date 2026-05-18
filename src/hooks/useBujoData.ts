@@ -70,6 +70,18 @@ function userPath(uid: string) {
   return `users/${uid}`
 }
 
+export function toHabitWrite(input: NewHabitInput): NewHabitInput {
+  return {
+    name: input.name.trim(),
+    icon: input.icon,
+    color: input.color,
+    reminderEnabled: input.reminderEnabled,
+    reminderTime: input.reminderTime || '20:00',
+    timerEnabled: input.timerEnabled,
+    timerMinutes: Math.min(180, Math.max(1, Number(input.timerMinutes) || 1)),
+  }
+}
+
 function mapHabit(id: string, data: Record<string, unknown>): Habit {
   return {
     id,
@@ -184,9 +196,9 @@ export function useBujoData(user: User | null) {
     async (input: NewHabitInput) => {
       if (!user || !db) return
 
+      const habitWrite = toHabitWrite(input)
       await addDoc(collection(db, userPath(user.uid), 'habits'), {
-        ...input,
-        name: input.name.trim(),
+        ...habitWrite,
         active: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -200,8 +212,7 @@ export function useBujoData(user: User | null) {
       if (!user || !db) return
 
       await updateDoc(doc(db, userPath(user.uid), 'habits', habitId), {
-        ...input,
-        name: input.name.trim(),
+        ...toHabitWrite(input),
         updatedAt: serverTimestamp(),
       })
     },
@@ -252,7 +263,7 @@ export function useBujoData(user: User | null) {
     for (const starter of starterHabits) {
       const habitRef = doc(habitCollection)
       batch.set(habitRef, {
-        ...starter,
+        ...toHabitWrite(starter),
         active: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
