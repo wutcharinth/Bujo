@@ -1,6 +1,7 @@
 export type HabitIcon =
   // Health & Fitness
   | 'heart' | 'pill' | 'drop' | 'apple' | 'carrot' | 'dumbbell' | 'bike' | 'steps' | 'activity' | 'flame' | 'bed' | 'shield'
+  | 'stethoscope' | 'heart-pulse' | 'briefcase-medical' | 'salad' | 'sprout' | 'scale' | 'thermometer' | 'bandage' | 'bone'
   // Mind & Learning
   | 'brain' | 'book' | 'graduation-cap' | 'languages' | 'palette' | 'music' | 'microscope'
   // Productivity & Work
@@ -17,7 +18,7 @@ export type HabitFrequency = 'daily' | 'weekly'
 /** 0 = Monday, 1 = Tuesday, … 6 = Sunday (matches the app's Monday-start week). */
 export type WeekDay = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
-export type HabitColor = 'blue' | 'green' | 'coral' | 'gold' | 'violet' | 'gray' | 'teal' | 'pink' | 'indigo' | 'amber' | 'mint'
+export type HabitColor = 'blue' | 'green' | 'coral' | 'gold' | 'violet' | 'gray' | 'teal' | 'pink' | 'indigo' | 'amber' | 'mint' | 'rose' | 'sunset' | 'lavender' | 'turquoise' | 'sky' | 'forest' | 'crimson'
 
 export interface Habit {
   id: string
@@ -67,6 +68,8 @@ export interface DrinkCheckin {
   water: number
   coffee: number
   alcohol: number
+  wine: number
+  softdrink: number
 }
 
 export interface NewHabitInput {

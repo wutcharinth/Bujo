@@ -27,6 +27,7 @@ import {
   X,
   Beer,
   GlassWater,
+  CupSoda,
   // Health & Fitness
   Heart,
   Pill,
@@ -40,6 +41,15 @@ import {
   Flame,
   Bed,
   Shield,
+  Stethoscope,
+  HeartPulse,
+  BriefcaseMedical,
+  Salad,
+  Sprout,
+  Scale,
+  Thermometer,
+  Bandage,
+  Bone,
   // Mind & Learning
   Brain,
   BookOpen,
@@ -112,6 +122,15 @@ const habitIcons: Record<HabitIcon, LucideIcon> = {
   flame: Flame,
   bed: Bed,
   shield: Shield,
+  stethoscope: Stethoscope,
+  'heart-pulse': HeartPulse,
+  'briefcase-medical': BriefcaseMedical,
+  salad: Salad,
+  sprout: Sprout,
+  scale: Scale,
+  thermometer: Thermometer,
+  bandage: Bandage,
+  bone: Bone,
 
   // Mind & Learning
   brain: Brain,
@@ -166,6 +185,83 @@ const habitIcons: Record<HabitIcon, LucideIcon> = {
   dog: Dog,
 }
 
+const iconTags: Record<HabitIcon, string[]> = {
+  // Health & Fitness
+  heart: ['love', 'cardio', 'health', 'pulse', 'care', 'fitness'],
+  pill: ['medicine', 'vitamin', 'supplement', 'drug', 'health', 'sick'],
+  drop: ['water', 'hydration', 'fluid', 'drink', 'liquid', 'sweat', 'health'],
+  apple: ['fruit', 'food', 'healthy', 'diet', 'eating', 'snack'],
+  carrot: ['vegetable', 'healthy', 'diet', 'eating', 'food', 'vision'],
+  dumbbell: ['gym', 'workout', 'weight', 'lift', 'strength', 'fitness', 'exercise'],
+  bike: ['cycle', 'ride', 'cardio', 'workout', 'fitness', 'exercise', 'outdoor'],
+  steps: ['walk', 'run', 'cardio', 'movement', 'footprints', 'tracking'],
+  activity: ['pulse', 'rate', 'heart', 'cardio', 'health', 'sports'],
+  flame: ['calories', 'burn', 'streak', 'energy', 'hot', 'motivation'],
+  bed: ['sleep', 'rest', 'nap', 'bedtime', 'recovery', 'night'],
+  shield: ['protect', 'safety', 'health', 'secure', 'defense', 'habits'],
+  stethoscope: ['doctor', 'checkup', 'clinic', 'medical', 'heart', 'health'],
+  'heart-pulse': ['heartbeat', 'cardio', 'pulse', 'ekg', 'gym', 'health'],
+  'briefcase-medical': ['first-aid', 'doctor', 'kit', 'medicine', 'health', 'care'],
+  salad: ['healthy', 'eating', 'diet', 'vegan', 'greens', 'food'],
+  sprout: ['grow', 'plant', 'nature', 'health', 'organic', 'new'],
+  scale: ['weight', 'mass', 'fitness', 'diet', 'progress', 'body'],
+  thermometer: ['fever', 'temperature', 'sick', 'health', 'weather'],
+  bandage: ['injury', 'wound', 'heal', 'care', 'first-aid', 'recovery'],
+  bone: ['calcium', 'skeleton', 'joints', 'strength', 'supplements'],
+
+  // Mind & Learning
+  brain: ['think', 'mind', 'mental', 'learn', 'study', 'focus', 'idea'],
+  book: ['read', 'study', 'learn', 'education', 'knowledge', 'relax'],
+  'graduation-cap': ['school', 'university', 'degree', 'education', 'learn', 'smart'],
+  languages: ['translate', 'speak', 'study', 'words', 'learn', 'talk'],
+  palette: ['art', 'paint', 'draw', 'creative', 'design', 'hobby'],
+  music: ['song', 'instrument', 'relax', 'play', 'sing', 'sound'],
+  microscope: ['science', 'research', 'lab', 'study', 'learn', 'test'],
+
+  // Productivity & Work
+  pencil: ['write', 'draw', 'journal', 'note', 'creative', 'work'],
+  'pen-tool': ['design', 'vector', 'art', 'creative', 'draw', 'work'],
+  briefcase: ['work', 'job', 'business', 'office', 'career'],
+  laptop: ['computer', 'work', 'code', 'type', 'screen', 'tech'],
+  calculator: ['math', 'numbers', 'finance', 'budget', 'work', 'accounting'],
+  banknote: ['money', 'cash', 'save', 'spend', 'finance', 'budget'],
+  clock: ['time', 'timer', 'schedule', 'duration', 'routine'],
+  target: ['goal', 'focus', 'aim', 'achieve', 'task', 'mission'],
+
+  // Home & Lifestyle
+  home: ['house', 'family', 'indoor', 'clean', 'room'],
+  laundry: ['wash', 'clothes', 'clean', 'chore', 'laundry'],
+  shower: ['clean', 'wash', 'bath', 'hygiene', 'morning', 'fresh'],
+  brush: ['teeth', 'dentist', 'clean', 'hygiene', 'morning', 'paint'],
+  'shopping-cart': ['buy', 'store', 'groceries', 'shop', 'spend'],
+  utensils: ['eat', 'food', 'meal', 'dinner', 'cooking', 'restaurant'],
+  coffee: ['caffeine', 'morning', 'drink', 'cup', 'energy', 'tea'],
+  hammer: ['build', 'fix', 'tool', 'repair', 'diy', 'construct'],
+  camera: ['photo', 'picture', 'memory', 'capture', 'hobby'],
+  wine: ['drink', 'alcohol', 'relax', 'evening', 'party', 'bar'],
+
+  // Nature & Travel
+  leaf: ['green', 'nature', 'sprout', 'organic', 'eco', 'plant'],
+  sun: ['day', 'morning', 'light', 'warm', 'outside', 'weather'],
+  moon: ['night', 'sleep', 'evening', 'dark', 'sky'],
+  cloud: ['weather', 'sky', 'relax', 'nature', 'rain'],
+  plane: ['travel', 'fly', 'flight', 'trip', 'vacation', 'holiday'],
+  compass: ['direction', 'explore', 'map', 'outdoor', 'adventure', 'travel'],
+
+  // General & Motivation
+  sparkles: ['magic', 'clean', 'new', 'star', 'special', 'motivation'],
+  star: ['fave', 'favorite', 'rating', 'win', 'shine', 'points'],
+  zap: ['energy', 'lightning', 'quick', 'power', 'fast', 'motivation'],
+  flag: ['start', 'finish', 'milestone', 'destination', 'achievement'],
+  award: ['prize', 'trophy', 'win', 'achievement', 'first'],
+  smile: ['happy', 'mood', 'joy', 'friendly', 'positivity'],
+  gift: ['present', 'reward', 'treat', 'birthday', 'surprise'],
+  trophy: ['win', 'prize', 'champion', 'first', 'award', 'achievement'],
+  gamepad: ['game', 'play', 'fun', 'console', 'relax', 'hobby'],
+  cat: ['pet', 'animal', 'kitten', 'meow', 'cute'],
+  dog: ['pet', 'animal', 'puppy', 'walk', 'cute'],
+}
+
 const colorNames: Record<HabitColor, string> = {
   blue: 'Blue',
   green: 'Green',
@@ -178,6 +274,13 @@ const colorNames: Record<HabitColor, string> = {
   indigo: 'Indigo',
   amber: 'Amber',
   mint: 'Mint',
+  rose: 'Rose',
+  sunset: 'Sunset',
+  lavender: 'Lavender',
+  turquoise: 'Turquoise',
+  sky: 'Sky',
+  forest: 'Forest',
+  crimson: 'Crimson',
 }
 
 const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
@@ -511,12 +614,12 @@ function DrinksTracker({
   onUpdateDrink,
 }: {
   drinks: DrinkCheckin[]
-  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol', delta: number) => Promise<void>
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => Promise<void>
 }) {
   const todayKey = getDateKey()
-  const todaysDrinks = drinks.find((d) => d.date === todayKey) || { water: 0, coffee: 0, alcohol: 0 }
+  const todaysDrinks = drinks.find((d) => d.date === todayKey) || { water: 0, coffee: 0, alcohol: 0, wine: 0, softdrink: 0 }
 
-  const handleContext = (e: React.MouseEvent, type: 'water' | 'coffee' | 'alcohol') => {
+  const handleContext = (e: React.MouseEvent, type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink') => {
     e.preventDefault()
     onUpdateDrink(type, -1)
   }
@@ -552,9 +655,31 @@ function DrinksTracker({
         <button 
           className="drink-btn" 
           type="button" 
+          onClick={() => onUpdateDrink('softdrink', 1)}
+          onContextMenu={(e) => handleContext(e, 'softdrink')}
+          aria-label="Soft drink"
+        >
+          <div className="drink-icon softdrink"><CupSoda size={22} /></div>
+          {(todaysDrinks.softdrink ?? 0) > 0 && <span className="drink-badge">{todaysDrinks.softdrink}</span>}
+        </button>
+
+        <button 
+          className="drink-btn" 
+          type="button" 
+          onClick={() => onUpdateDrink('wine', 1)}
+          onContextMenu={(e) => handleContext(e, 'wine')}
+          aria-label="Wine"
+        >
+          <div className="drink-icon wine"><Wine size={22} /></div>
+          {(todaysDrinks.wine ?? 0) > 0 && <span className="drink-badge">{todaysDrinks.wine}</span>}
+        </button>
+
+        <button 
+          className="drink-btn" 
+          type="button" 
           onClick={() => onUpdateDrink('alcohol', 1)}
           onContextMenu={(e) => handleContext(e, 'alcohol')}
-          aria-label="Alcohol"
+          aria-label="Beer / Alcohol"
         >
           <div className="drink-icon alcohol"><Beer size={22} /></div>
           {todaysDrinks.alcohol > 0 && <span className="drink-badge">{todaysDrinks.alcohol}</span>}
@@ -589,7 +714,7 @@ function TodayView({
   onAddHabit: () => void
   onToggle: (habitId: string, completed: boolean) => Promise<void>
   onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => Promise<void>
-  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol', delta: number) => Promise<void>
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const completedCount = completedToday.size
@@ -735,7 +860,9 @@ function HabitsView({
           activeHabits.map((habit) => (
             <div className="manage-row" key={habit.id}>
               <HabitIdentity habit={habit} />
-              <HabitBadges habit={habit} accessory={habit.timerEnabled ? `${habit.timerMinutes}m` : undefined} />
+              <div className="row-badges">
+                <HabitBadges habit={habit} accessory={habit.timerEnabled ? `${habit.timerMinutes}m` : undefined} />
+              </div>
               <div className="row-actions">
                 <button className="icon-button quiet" type="button" aria-label={`Edit ${habit.name}`} onClick={() => onEdit(habit)}>
                   <Pencil size={18} />
@@ -1271,6 +1398,13 @@ function SettingsView({
               { label: 'Amber', value: '#e67e22' },
               { label: 'Mint', value: '#2ecc8e' },
               { label: 'Gray', value: '#7b8492' },
+              { label: 'Rose', value: '#ff4757' },
+              { label: 'Sunset', value: '#ff7f50' },
+              { label: 'Lavender', value: '#a55eea' },
+              { label: 'Turquoise', value: '#00d2d3' },
+              { label: 'Sky', value: '#54a0ff' },
+              { label: 'Forest', value: '#20bf6b' },
+              { label: 'Crimson', value: '#e84118' },
             ].map((colorOpt) => (
               <button
                 key={colorOpt.value}
@@ -1307,6 +1441,17 @@ function HabitSheet({
   const [input, setInput] = useState<NewHabitInput>(() => habitToInput(habit))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [iconSearch, setIconSearch] = useState('')
+  const filteredIcons = useMemo(() => {
+    return (Object.keys(habitIcons) as HabitIcon[]).filter((iconKey) => {
+      if (!iconSearch) return true
+      const query = iconSearch.toLowerCase()
+      const nameMatch = iconKey.toLowerCase().includes(query)
+      const tags = iconTags[iconKey] || []
+      const tagMatch = tags.some((tag) => tag.toLowerCase().includes(query))
+      return nameMatch || tagMatch
+    })
+  }, [iconSearch])
   const canSave = input.name.trim().length > 0
   const weeklyTarget = normalizeWeeklyTarget(input.weeklyTarget)
   const adjustWeeklyTarget = (amount: number) => {
@@ -1365,11 +1510,18 @@ function HabitSheet({
         {saveError && <InlineMessage tone="warning" message={saveError} />}
 
         <div className="picker-group">
-          <div className="compact-label">
+          <div className="compact-label" style={{ flexWrap: 'wrap', gap: '8px' }}>
             <span>Icon</span>
+            <input
+              type="text"
+              placeholder="Search icons..."
+              value={iconSearch}
+              onChange={(e) => setIconSearch(e.target.value)}
+              className="icon-search-input"
+            />
           </div>
           <div className="icon-picker">
-            {(Object.keys(habitIcons) as HabitIcon[]).map((iconKey) => {
+            {filteredIcons.map((iconKey) => {
               const Icon = habitIcons[iconKey]
               return (
                 <button
@@ -1383,6 +1535,9 @@ function HabitSheet({
                 </button>
               )
             })}
+            {filteredIcons.length === 0 && (
+              <p className="helper-copy" style={{ width: '100%', padding: '4px 0', fontSize: '13px', color: 'var(--subtle)' }}>No matching icons found.</p>
+            )}
           </div>
         </div>
 

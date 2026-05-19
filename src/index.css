@@ -24,6 +24,13 @@
   --indigo: #4f68ff;
   --amber: #e67e22;
   --mint: #2ecc8e;
+  --rose: #ff4757;
+  --sunset: #ff7f50;
+  --lavender: #a55eea;
+  --turquoise: #00d2d3;
+  --sky: #54a0ff;
+  --forest: #20bf6b;
+  --crimson: #e84118;
   --danger: #d94242;
   --contrib-empty: rgba(120, 120, 128, 0.1);
   --contrib-l1: rgba(36, 160, 72, 0.2);
@@ -477,6 +484,34 @@ main {
   background: var(--mint);
 }
 
+.rose {
+  background: var(--rose);
+}
+
+.sunset {
+  background: var(--sunset);
+}
+
+.lavender {
+  background: var(--lavender);
+}
+
+.turquoise {
+  background: var(--turquoise);
+}
+
+.sky {
+  background: var(--sky);
+}
+
+.forest {
+  background: var(--forest);
+}
+
+.crimson {
+  background: var(--crimson);
+}
+
 .row-meta {
   display: inline-flex;
   align-items: center;
@@ -561,6 +596,13 @@ main {
   color: var(--secondary-text);
   background: var(--secondary-bg);
   border: 1px solid var(--line);
+}
+
+.screen-stack > .primary-action {
+  min-height: 40px !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  margin-bottom: 4px;
 }
 
 .danger {
@@ -726,6 +768,8 @@ main {
 .drink-icon.water { color: var(--blue); }
 .drink-icon.coffee { color: var(--gold); }
 .drink-icon.alcohol { color: var(--violet); }
+.drink-icon.wine { color: var(--coral); }
+.drink-icon.softdrink { color: var(--mint); }
 
 .drink-badge {
   position: absolute;
@@ -1681,6 +1725,25 @@ main {
 .compact-label small {
   color: var(--muted);
   font-size: 12px;
+}
+
+.icon-search-input {
+  max-width: 140px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.icon-search-input:focus {
+  border-color: var(--theme-color);
+  box-shadow: 0 0 0 3px rgba(40, 120, 255, 0.15);
 }
 
 .icon-picker,

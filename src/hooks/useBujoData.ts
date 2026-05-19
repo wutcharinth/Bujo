@@ -93,6 +93,8 @@ function mapDrinkCheckin(id: string, data: Record<string, unknown>): DrinkChecki
     water: typeof data.water === 'number' ? data.water : 0,
     coffee: typeof data.coffee === 'number' ? data.coffee : 0,
     alcohol: typeof data.alcohol === 'number' ? data.alcohol : 0,
+    wine: typeof data.wine === 'number' ? data.wine : 0,
+    softdrink: typeof data.softdrink === 'number' ? data.softdrink : 0,
   }
 }
 
@@ -297,7 +299,7 @@ export function useBujoData(user: User | null) {
   )
 
   const updateDrinkCount = useCallback(
-    async (type: 'water' | 'coffee' | 'alcohol', delta: number) => {
+    async (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => {
       if (!user || !db) return
 
       const date = getDateKey()
