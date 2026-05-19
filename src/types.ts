@@ -1,16 +1,16 @@
 export type HabitIcon =
   // Health & Fitness
-  | 'heart' | 'pill' | 'drop' | 'apple' | 'carrot' | 'dumbbell' | 'bike' | 'steps' | 'activity' | 'flame' | 'bed'
+  | 'heart' | 'pill' | 'drop' | 'apple' | 'carrot' | 'dumbbell' | 'bike' | 'steps' | 'activity' | 'flame' | 'bed' | 'shield'
   // Mind & Learning
   | 'brain' | 'book' | 'graduation-cap' | 'languages' | 'palette' | 'music' | 'microscope'
   // Productivity & Work
   | 'pencil' | 'pen-tool' | 'briefcase' | 'laptop' | 'calculator' | 'banknote' | 'clock' | 'target'
   // Home & Lifestyle
-  | 'home' | 'laundry' | 'shower' | 'brush' | 'shopping-cart' | 'utensils' | 'coffee' | 'hammer' | 'camera'
+  | 'home' | 'laundry' | 'shower' | 'brush' | 'shopping-cart' | 'utensils' | 'coffee' | 'hammer' | 'camera' | 'wine'
   // Nature & Travel
   | 'leaf' | 'sun' | 'moon' | 'cloud' | 'plane' | 'compass'
   // General & Motivation
-  | 'sparkles' | 'star' | 'zap' | 'flag' | 'award' | 'smile'
+  | 'sparkles' | 'star' | 'zap' | 'flag' | 'award' | 'smile' | 'gift' | 'trophy' | 'gamepad' | 'cat' | 'dog'
 
 export type HabitFrequency = 'daily' | 'weekly'
 

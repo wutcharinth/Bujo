@@ -39,6 +39,7 @@ import {
   Activity,
   Flame,
   Bed,
+  Shield,
   // Mind & Learning
   Brain,
   BookOpen,
@@ -65,6 +66,7 @@ import {
   Coffee,
   Hammer,
   Camera,
+  Wine,
   // Nature & Travel
   Leaf,
   Sun,
@@ -79,6 +81,11 @@ import {
   Flag,
   Award,
   Smile,
+  Gift,
+  Trophy,
+  Gamepad2,
+  Cat,
+  Dog,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
@@ -104,6 +111,7 @@ const habitIcons: Record<HabitIcon, LucideIcon> = {
   activity: Activity,
   flame: Flame,
   bed: Bed,
+  shield: Shield,
 
   // Mind & Learning
   brain: Brain,
@@ -134,6 +142,7 @@ const habitIcons: Record<HabitIcon, LucideIcon> = {
   coffee: Coffee,
   hammer: Hammer,
   camera: Camera,
+  wine: Wine,
 
   // Nature & Travel
   leaf: Leaf,
@@ -150,6 +159,11 @@ const habitIcons: Record<HabitIcon, LucideIcon> = {
   flag: Flag,
   award: Award,
   smile: Smile,
+  gift: Gift,
+  trophy: Trophy,
+  gamepad: Gamepad2,
+  cat: Cat,
+  dog: Dog,
 }
 
 const colorNames: Record<HabitColor, string> = {
@@ -1331,7 +1345,7 @@ function HabitSheet({
       >
         <div className="sheet-handle" />
         <div className="sheet-header">
-          <h2>{habit ? 'Edit habit' : 'New habit'}</h2>
+          <h2>{habit ? 'Edit habit' : ''}</h2>
           <button className="icon-button quiet" type="button" aria-label="Close" onClick={onClose}>
             <X size={20} />
           </button>
