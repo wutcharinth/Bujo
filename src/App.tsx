@@ -178,6 +178,20 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
       document.documentElement.removeAttribute('data-theme')
     }
     document.documentElement.style.setProperty('--theme-color', color)
+
+    // Update meta theme-color so mobile top status bar matches the background
+    setTimeout(() => {
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
+      if (bg) {
+        let metaThemeColor = document.querySelector('meta[name="theme-color"]')
+        if (!metaThemeColor) {
+          metaThemeColor = document.createElement('meta')
+          metaThemeColor.setAttribute('name', 'theme-color')
+          document.head.appendChild(metaThemeColor)
+        }
+        metaThemeColor.setAttribute('content', bg)
+      }
+    }, 50)
   }, [bujo.prefs.theme, bujo.prefs.themeColor])
 
   const completedToday = useMemo(
@@ -1105,7 +1119,7 @@ function SettingsView({
                 className="icon-picker-btn"
                 type="button"
                 onClick={() => run(() => onSavePrefs({ themeColor: colorOpt.value }))}
-                style={{ background: colorOpt.value, color: '#fff', borderColor: prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff') ? 'var(--text)' : 'transparent' }}
+                style={{ background: colorOpt.value, color: '#fff', borderRadius: '50%', borderColor: prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff') ? 'var(--text)' : 'transparent' }}
                 aria-label={colorOpt.label}
               >
                 {(prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff')) && <Check size={16} />}
