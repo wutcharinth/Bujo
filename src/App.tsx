@@ -105,80 +105,6 @@ interface ActiveTimer {
   isRunning: boolean
 }
 
-type HabitTemplate = NewHabitInput & {
-  description: string
-  category: 'Body' | 'Mind' | 'Focus' | 'Evening'
-}
-
-const habitTemplates: HabitTemplate[] = [
-  {
-    name: 'Morning walk',
-    description: '10 minutes outside',
-    category: 'Body',
-    icon: 'steps',
-    color: 'green',
-    reminderEnabled: true,
-    reminderTime: '07:30',
-    timerEnabled: true,
-    timerMinutes: 10,
-  },
-  {
-    name: 'Read 20',
-    description: 'A clean reading block',
-    category: 'Mind',
-    icon: 'book',
-    color: 'gold',
-    reminderEnabled: true,
-    reminderTime: '21:00',
-    timerEnabled: true,
-    timerMinutes: 20,
-  },
-  {
-    name: 'Meditate',
-    description: 'Settle for five',
-    category: 'Mind',
-    icon: 'sparkles',
-    color: 'violet',
-    reminderEnabled: true,
-    reminderTime: '08:00',
-    timerEnabled: true,
-    timerMinutes: 5,
-  },
-  {
-    name: 'Deep work',
-    description: 'One focused sprint',
-    category: 'Focus',
-    icon: 'pencil',
-    color: 'blue',
-    reminderEnabled: true,
-    reminderTime: '10:00',
-    timerEnabled: true,
-    timerMinutes: 45,
-  },
-  {
-    name: 'Stretch',
-    description: 'Reset your body',
-    category: 'Body',
-    icon: 'heart',
-    color: 'coral',
-    reminderEnabled: true,
-    reminderTime: '17:30',
-    timerEnabled: true,
-    timerMinutes: 8,
-  },
-  {
-    name: 'Plan tomorrow',
-    description: 'Close the day calmly',
-    category: 'Evening',
-    icon: 'moon',
-    color: 'gray',
-    reminderEnabled: true,
-    reminderTime: '21:30',
-    timerEnabled: false,
-    timerMinutes: 5,
-  },
-]
-
 function App() {
   const authState = useAuth()
 
@@ -278,10 +204,6 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
               <HabitsView
                 habits={bujo.habits}
                 onAddHabit={openCreateSheet}
-                onAddTemplate={async (template) => {
-                  await bujo.addHabit(template)
-                  setNotice(`${template.name} added to Bujo.`)
-                }}
                 onArchive={bujo.archiveHabit}
                 onEdit={openEditSheet}
               />
@@ -487,18 +409,15 @@ function TodayView({
 function HabitsView({
   habits,
   onAddHabit,
-  onAddTemplate,
   onArchive,
   onEdit,
 }: {
   habits: Habit[]
   onAddHabit: () => void
-  onAddTemplate: (template: NewHabitInput) => Promise<void>
   onArchive: (habitId: string) => Promise<void>
   onEdit: (habit: Habit) => void
 }) {
   const activeHabits = habits.filter((habit) => habit.active)
-  const activeHabitNames = new Set(activeHabits.map((habit) => habit.name.trim().toLowerCase()))
 
   return (
     <section className="screen-stack" aria-label="Habits">
@@ -506,38 +425,6 @@ function HabitsView({
         <Plus size={20} />
         <span>New habit</span>
       </button>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Suggested habits</h2>
-          <span>{habitTemplates.length} templates</span>
-        </div>
-        <div className="template-grid">
-          {habitTemplates.map((template) => {
-            const Icon = habitIcons[template.icon]
-            const isAdded = activeHabitNames.has(template.name.toLowerCase())
-
-            return (
-              <button
-                className="template-card"
-                type="button"
-                key={template.name}
-                disabled={isAdded}
-                onClick={() => onAddTemplate(template)}
-              >
-                <span className={`habit-glyph ${template.color}`}>
-                  <Icon size={20} />
-                </span>
-                <span>
-                  <strong>{template.name}</strong>
-                  <small>{template.description}</small>
-                </span>
-                <em>{isAdded ? 'Added' : template.category}</em>
-              </button>
-            )
-          })}
-        </div>
-      </div>
 
       <div className="grouped-list">
         {activeHabits.length === 0 ? (

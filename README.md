@@ -1,6 +1,6 @@
 # Bujo
 
-Bujo is an Apple-inspired mobile PWA for small daily habits, Google sign-in, streaks, an insight-focused progress dashboard, habit templates, per-habit reminders, and optional habit timers.
+Bujo is an Apple-inspired mobile PWA for small daily habits, Google sign-in, streaks, an insight-focused progress dashboard, per-habit reminders, and optional habit timers.
 
 ## Local Setup
 
