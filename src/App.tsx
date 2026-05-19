@@ -47,7 +47,7 @@ import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeekl
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { Habit, HabitColor, HabitIcon, NewHabitInput, WeekDay } from './types'
+import type { Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, TimeOfDay, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'settings'
 
@@ -228,12 +228,14 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
               <TodayView
                 activeHabits={bujo.activeHabits}
                 checkins={bujo.checkins}
+                moods={bujo.moods}
                 completedToday={completedToday}
                 progress={progress}
                 streak={appStreaks.current}
                 onTrackCount={onTrackCount}
                 onAddHabit={openCreateSheet}
                 onToggle={bujo.toggleToday}
+                onSetMood={bujo.setMood}
               />
             )}
             {activeTab === 'habits' && (
@@ -313,24 +315,92 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   )
 }
 
+function MoodTracker({
+  moods,
+  onSetMood,
+}: {
+  moods: MoodCheckin[]
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue) => void
+}) {
+  const todayKey = getDateKey()
+  const todaysMoods = moods.filter((m) => m.date === todayKey)
+  const morningMood = todaysMoods.find((m) => m.timeOfDay === 'morning')?.value
+  const eveningMood = todaysMoods.find((m) => m.timeOfDay === 'evening')?.value
+
+  const moodOptions: Array<{ value: MoodValue; emoji: string; label: string }> = [
+    { value: 'terrible', emoji: '😫', label: 'Terrible' },
+    { value: 'bad', emoji: '🙁', label: 'Bad' },
+    { value: 'okay', emoji: '😐', label: 'Okay' },
+    { value: 'good', emoji: '🙂', label: 'Good' },
+    { value: 'great', emoji: '🤩', label: 'Great' },
+  ]
+
+  return (
+    <div className="panel-section">
+      <div className="section-heading">
+        <h2>Daily Mood</h2>
+        <span>Check in</span>
+      </div>
+      <div className="mood-tracker">
+        <div className="mood-row">
+          <span>Morning</span>
+          <div className="mood-options">
+            {moodOptions.map((opt) => (
+              <button
+                key={`morning-${opt.value}`}
+                type="button"
+                className={`mood-btn ${morningMood === opt.value ? 'active' : ''}`}
+                onClick={() => onSetMood('morning', opt.value)}
+                aria-label={opt.label}
+              >
+                {opt.emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mood-row">
+          <span>Evening</span>
+          <div className="mood-options">
+            {moodOptions.map((opt) => (
+              <button
+                key={`evening-${opt.value}`}
+                type="button"
+                className={`mood-btn ${eveningMood === opt.value ? 'active' : ''}`}
+                onClick={() => onSetMood('evening', opt.value)}
+                aria-label={opt.label}
+              >
+                {opt.emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TodayView({
   activeHabits,
   checkins,
+  moods,
   completedToday,
   progress,
   streak,
   onTrackCount,
   onAddHabit,
   onToggle,
+  onSetMood,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
+  moods: MoodCheckin[]
   completedToday: Set<string>
   progress: number
   streak: number
   onTrackCount: number
   onAddHabit: () => void
   onToggle: (habitId: string, completed: boolean) => Promise<void>
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const completedCount = completedToday.size
@@ -386,6 +456,8 @@ function TodayView({
         <Metric icon={Flame} label="Current streak" value={`${streak}d`} />
         <Metric icon={Check} label="Checked today" value={`${completedCount}/${activeHabits.length}`} />
       </div>
+
+      <MoodTracker moods={moods} onSetMood={onSetMood} />
 
       {activeTimer && (
         <TimerPanel
@@ -737,30 +809,32 @@ function ProgressView({
           <span>Last {GRAPH_WEEKS} weeks</span>
         </div>
         <div className="contrib-graph">
-          <div className="contrib-months" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 1fr)` }}>
-            <span />
-            {graphMonthLabels.map(({ label, col }) => (
-              <span key={`${label}-${col}`} style={{ gridColumn: col }}>{label}</span>
-            ))}
-          </div>
-          <div className="contrib-grid" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 1fr)` }}>
-            {[0, 1, 2, 3, 4, 5, 6].map((row) => (
-              <>
-                <span className="contrib-day-label" key={`label-${row}`}>
-                  {row % 2 === 0 ? dateLabels[row] : ''}
-                </span>
-                {graphGrid.map((week) => {
-                  const cell = week[row]
-                  return (
-                    <span
-                      className={`contrib-cell level-${cell.intensity}`}
-                      key={cell.dateKey}
-                      title={`${cell.dateKey}: ${cell.rate}%`}
-                    />
-                  )
-                })}
-              </>
-            ))}
+          <div className="contrib-scroll">
+            <div className="contrib-months" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 14px)` }}>
+              <span />
+              {graphMonthLabels.map(({ label, col }) => (
+                <span key={`${label}-${col}`} style={{ gridColumn: col }}>{label}</span>
+              ))}
+            </div>
+            <div className="contrib-grid" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 14px)` }}>
+              {[0, 1, 2, 3, 4, 5, 6].map((row) => (
+                <>
+                  <span className="contrib-day-label" key={`label-${row}`}>
+                    {row % 2 === 0 ? dateLabels[row] : ''}
+                  </span>
+                  {graphGrid.map((week) => {
+                    const cell = week[row]
+                    return (
+                      <span
+                        className={`contrib-cell level-${cell.intensity}`}
+                        key={cell.dateKey}
+                        title={`${cell.dateKey}: ${cell.rate}%`}
+                      />
+                    )
+                  })}
+                </>
+              ))}
+            </div>
           </div>
           <div className="contrib-legend">
             <span>Less</span>

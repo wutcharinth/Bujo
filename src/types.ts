@@ -54,6 +54,16 @@ export interface NotificationPrefs {
   lastSentDate?: string
 }
 
+export type MoodValue = 'terrible' | 'bad' | 'okay' | 'good' | 'great'
+export type TimeOfDay = 'morning' | 'evening'
+
+export interface MoodCheckin {
+  id: string
+  date: string
+  timeOfDay: TimeOfDay
+  value: MoodValue
+}
+
 export interface NewHabitInput {
   name: string
   icon: HabitIcon

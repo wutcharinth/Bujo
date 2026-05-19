@@ -17,7 +17,7 @@ import { getDateKey } from '../lib/dates'
 import { normalizeWeeklyTarget } from '../lib/habitGoals'
 import { getPlatformHints } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
-import type { Checkin, Habit, NewHabitInput, NotificationPrefs, WeekDay } from '../types'
+import type { Checkin, Habit, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from '../types'
 
 const defaultPrefs = (): NotificationPrefs => ({
   enabled: false,
@@ -77,9 +77,19 @@ function mapCheckin(id: string, data: Record<string, unknown>): Checkin {
   }
 }
 
+function mapMoodCheckin(id: string, data: Record<string, unknown>): MoodCheckin {
+  return {
+    id,
+    date: typeof data.date === 'string' ? data.date : '',
+    timeOfDay: data.timeOfDay === 'morning' || data.timeOfDay === 'evening' ? data.timeOfDay : 'morning',
+    value: ['terrible', 'bad', 'okay', 'good', 'great'].includes(data.value as string) ? (data.value as MoodValue) : 'okay',
+  }
+}
+
 export function useBujoData(user: User | null) {
   const [habits, setHabits] = useState<Habit[]>([])
   const [checkins, setCheckins] = useState<Checkin[]>([])
+  const [moods, setMoods] = useState<MoodCheckin[]>([])
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs)
   const [loading, setLoading] = useState(Boolean(user))
   const [error, setError] = useState<string | null>(null)
@@ -127,6 +137,18 @@ export function useBujoData(user: User | null) {
       (snapshotError) => setError(snapshotError.message),
     )
 
+    const unsubscribeMoods = onSnapshot(
+      collection(db, basePath, 'moods'),
+      (snapshot) => {
+        setMoods(
+          snapshot.docs
+            .map((item) => mapMoodCheckin(item.id, item.data()))
+            .filter((mood) => mood.date && mood.value),
+        )
+      },
+      (snapshotError) => setError(snapshotError.message),
+    )
+
     const prefsRef = doc(db, basePath, 'notificationPrefs', 'main')
     const unsubscribePrefs = onSnapshot(
       prefsRef,
@@ -158,6 +180,7 @@ export function useBujoData(user: User | null) {
       window.clearTimeout(loadingTimeout)
       unsubscribeHabits()
       unsubscribeCheckins()
+      unsubscribeMoods()
       unsubscribePrefs()
     }
   }, [user])
@@ -226,6 +249,24 @@ export function useBujoData(user: User | null) {
     [user],
   )
 
+  const setMood = useCallback(
+    async (timeOfDay: TimeOfDay, value: MoodValue) => {
+      if (!user || !db) return
+
+      const date = getDateKey()
+      const moodId = `${date}_${timeOfDay}`
+      const moodRef = doc(db, userPath(user.uid), 'moods', moodId)
+
+      await setDoc(moodRef, {
+        date,
+        timeOfDay,
+        value,
+        updatedAt: serverTimestamp(),
+      })
+    },
+    [user],
+  )
+
   const saveNotificationPrefs = useCallback(
     async (updates: Partial<NotificationPrefs>) => {
       if (!user || !db) return
@@ -265,6 +306,7 @@ export function useBujoData(user: User | null) {
     habits,
     activeHabits,
     checkins,
+    moods,
     prefs,
     loading,
     error,
@@ -272,6 +314,7 @@ export function useBujoData(user: User | null) {
     updateHabit,
     archiveHabit,
     toggleToday,
+    setMood,
     saveNotificationPrefs,
     saveFcmToken,
   }

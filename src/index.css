@@ -598,6 +598,54 @@ main {
   font-weight: 700;
 }
 
+.mood-tracker {
+  display: grid;
+  gap: 16px;
+}
+
+.mood-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mood-row > span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mood-options {
+  display: flex;
+  gap: 8px;
+}
+
+.mood-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.mood-btn:active {
+  transform: scale(0.9);
+}
+
+.mood-btn.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  box-shadow: 0 4px 12px rgba(40, 120, 255, 0.3);
+  transform: scale(1.1);
+}
+
+
 .week-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -711,6 +759,19 @@ main {
   display: grid;
   gap: 6px;
   padding: 6px 0;
+}
+
+.contrib-scroll {
+  overflow-x: auto;
+  margin-right: -18px;
+  padding-right: 18px;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.contrib-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .contrib-months {
