@@ -38,7 +38,6 @@ import {
   RotateCcw,
   Settings,
   ShowerHead,
-  Smartphone,
   Smile,
   Sparkles,
   Sun,
@@ -54,7 +53,7 @@ import { useBujoData } from './hooks/useBujoData'
 import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
 import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget, WEEKDAY_SHORT } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
-import { getNotificationHelpText, requestPushToken } from './lib/notifications'
+import { requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
 import type { DrinkCheckin, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
 
@@ -381,12 +380,11 @@ function MoodTracker({
   return (
     <div className="panel-section">
       <div className="section-heading">
-        <h2>Daily Mood</h2>
-        <span>Check in</span>
+        <h2>Mood</h2>
       </div>
       <div className="mood-tracker">
         <div className="mood-row">
-          <span>Sleep Quality</span>
+          <span>Sleep</span>
           <div className="mood-options">
             {moodOptions.map((opt) => (
                 <button
@@ -402,7 +400,7 @@ function MoodTracker({
           </div>
         </div>
         <div className="mood-row">
-          <span>Day Feeling</span>
+          <span>Day</span>
           <div className="mood-options">
             {moodOptions.map((opt) => (
               <button
@@ -440,8 +438,7 @@ function DrinksTracker({
   return (
     <div className="panel-section">
       <div className="section-heading">
-        <h2>Daily Drinks</h2>
-        <span>Tap +, Long press -</span>
+        <h2>Drinks</h2>
       </div>
       <div className="drinks-tracker">
         <button 
@@ -449,10 +446,10 @@ function DrinksTracker({
           type="button" 
           onClick={() => onUpdateDrink('water', 1)}
           onContextMenu={(e) => handleContext(e, 'water')}
+          aria-label="Water"
         >
-          <div className="drink-icon water"><GlassWater size={24} /></div>
-          <strong>{todaysDrinks.water}</strong>
-          <span>Water</span>
+          <div className="drink-icon water"><GlassWater size={22} /></div>
+          {todaysDrinks.water > 0 && <span className="drink-badge">{todaysDrinks.water}</span>}
         </button>
 
         <button 
@@ -460,10 +457,10 @@ function DrinksTracker({
           type="button" 
           onClick={() => onUpdateDrink('coffee', 1)}
           onContextMenu={(e) => handleContext(e, 'coffee')}
+          aria-label="Coffee"
         >
-          <div className="drink-icon coffee"><Coffee size={24} /></div>
-          <strong>{todaysDrinks.coffee}</strong>
-          <span>Coffee</span>
+          <div className="drink-icon coffee"><Coffee size={22} /></div>
+          {todaysDrinks.coffee > 0 && <span className="drink-badge">{todaysDrinks.coffee}</span>}
         </button>
 
         <button 
@@ -471,10 +468,10 @@ function DrinksTracker({
           type="button" 
           onClick={() => onUpdateDrink('alcohol', 1)}
           onContextMenu={(e) => handleContext(e, 'alcohol')}
+          aria-label="Alcohol"
         >
-          <div className="drink-icon alcohol"><Beer size={24} /></div>
-          <strong>{todaysDrinks.alcohol}</strong>
-          <span>Alcohol</span>
+          <div className="drink-icon alcohol"><Beer size={22} /></div>
+          {todaysDrinks.alcohol > 0 && <span className="drink-badge">{todaysDrinks.alcohol}</span>}
         </button>
       </div>
     </div>
@@ -549,8 +546,7 @@ function TodayView({
       <div className="hero-panel">
         <div>
           <p className="panel-kicker">Today</p>
-          <h2>{activeHabits.length ? `${onTrackCount} of ${activeHabits.length} on track` : 'Start small today'}</h2>
-          <p>{activeHabits.length ? 'Tiny wins count. Weekly habits can land any day.' : 'One gentle habit is enough to begin.'}</p>
+          <h2>{activeHabits.length ? `${onTrackCount}/${activeHabits.length} on track` : 'Get started'}</h2>
         </div>
         <div className="progress-ring" style={{ '--progress': `${progressPercent}%` } as CSSProperties}>
           <span>{progressPercent}</span>
@@ -883,11 +879,8 @@ function ProgressView({
   const previousRate = previousStats.rate
   const trend = currentRate - previousRate
   const lastThreeKeys = recentKeys.slice(-3)
-  const previousThreeKeys = recentKeys.slice(-6, -3)
   const lastThreeRate = getWindowGoalStats(activeHabits, activeCheckins, lastThreeKeys).rate
-  const previousThreeRate = getWindowGoalStats(activeHabits, activeCheckins, previousThreeKeys).rate
-  const shortTrend = lastThreeRate - previousThreeRate
-const perfectDays = currentSevenKeys.filter((dateKey) => {
+  const perfectDays = currentSevenKeys.filter((dateKey) => {
     const doneThatDay = doneIdsForDate(dateKey)
     return activeHabits.length > 0 && activeHabits.every((habit) => doneThatDay.has(habit.id))
   }).length
@@ -925,22 +918,13 @@ const perfectDays = currentSevenKeys.filter((dateKey) => {
   const focusHabit = [...habitBreakdown].reverse().find((item) => item.rate < 80) ?? habitBreakdown[habitBreakdown.length - 1]
   const dashboardMood =
     currentRate >= 80 ? 'In flow' : currentRate >= 50 ? 'Building' : activeHabits.length ? 'Warming up' : 'Empty'
-  const insight =
-    activeHabits.length === 0
-      ? 'Add a few habits to unlock trends.'
-      : trend > 0
-        ? `Momentum is up ${trend} points vs. the previous week.`
-        : trend < 0
-          ? `Momentum is down ${Math.abs(trend)} points. Keep the next check-in easy.`
-          : 'Momentum is steady. Consistency is doing its quiet work.'
 
   return (
     <section className="screen-stack" aria-label="Progress">
       <div className="insight-hero">
         <div>
-          <p className="panel-kicker">Dashboard · {dashboardMood}</p>
+          <p className="panel-kicker">{dashboardMood}</p>
           <h2>{currentRate}%</h2>
-          <p>{insight}</p>
         </div>
         <span className={trend >= 0 ? 'trend-pill positive' : 'trend-pill negative'}>{trend >= 0 ? '+' : ''}{trend}</span>
       </div>
@@ -954,7 +938,7 @@ const perfectDays = currentSevenKeys.filter((dateKey) => {
       <div className="panel-section">
         <div className="section-heading">
           <h2>Momentum</h2>
-          <span>{lastThreeRate}% last 3 days</span>
+          <span>{lastThreeRate}%</span>
         </div>
         <div className="momentum-strip" aria-label="Last 14 days completion">
           {recentKeys.map((dateKey) => {
@@ -966,9 +950,6 @@ const perfectDays = currentSevenKeys.filter((dateKey) => {
             )
           })}
         </div>
-        <p className="dashboard-note">
-          {shortTrend >= 0 ? '+' : ''}{shortTrend} points vs. the 3 days before.
-        </p>
       </div>
 
       <div className="panel-section">
@@ -996,18 +977,18 @@ const perfectDays = currentSevenKeys.filter((dateKey) => {
       <div className="coach-grid">
         <div className="coach-card">
           <span>Best day</span>
-          <strong>{bestDay?.rate ? bestDay.dateKey.slice(5).replace('-', '/') : 'None yet'}</strong>
-          <p>{bestDay?.rate ? `${bestDay.rate}% complete across active habits.` : 'Complete one habit to start the map.'}</p>
+          <strong>{bestDay?.rate ? bestDay.dateKey.slice(5).replace('-', '/') : '—'}</strong>
+          <p>{bestDay?.rate ? `${bestDay.rate}%` : ''}</p>
         </div>
         <div className="coach-card">
           <span>Best rhythm</span>
-          <strong>{bestWeekday?.rate ? bestWeekday.label : 'None yet'}</strong>
-          <p>{bestWeekday?.rate ? `${bestWeekday.rate}% average over the last 4 weeks.` : 'Weekday patterns appear after check-ins.'}</p>
+          <strong>{bestWeekday?.rate ? bestWeekday.label : '—'}</strong>
+          <p>{bestWeekday?.rate ? `${bestWeekday.rate}%` : ''}</p>
         </div>
         <div className="coach-card">
-          <span>Next move</span>
-          <strong>{focusHabit?.habit.name ?? 'Add habit'}</strong>
-          <p>{focusHabit ? 'Make this one the easiest check-in today.' : 'Create one habit you can finish in under two minutes.'}</p>
+          <span>Focus</span>
+          <strong>{focusHabit?.habit.name ?? '—'}</strong>
+          <p>{focusHabit ? `${focusHabit.rate}%` : ''}</p>
         </div>
       </div>
 
@@ -1040,17 +1021,13 @@ const perfectDays = currentSevenKeys.filter((dateKey) => {
         <div className="insight-pair">
           <div className="mini-insight">
             <span>Strongest</span>
-            <strong>{strongestHabit?.habit.name ?? 'None yet'}</strong>
-            <p>{strongestHabit ? `${strongestHabit.rate}% over the last 14 days.` : 'Keep checking in.'}</p>
+            <strong>{strongestHabit?.habit.name ?? '—'}</strong>
+            <p>{strongestHabit ? `${strongestHabit.rate}%` : ''}</p>
           </div>
           <div className="mini-insight">
-            <span>Focus next</span>
-            <strong>{focusHabit?.habit.name ?? 'None yet'}</strong>
-            <p>
-              {focusHabit
-                ? `${focusHabit.recentDone}/${isWeeklyHabit(focusHabit.habit) ? focusHabit.targetTotal : 14} recently. Make this one tiny.`
-                : 'Add a habit to start.'}
-            </p>
+            <span>Focus</span>
+            <strong>{focusHabit?.habit.name ?? '—'}</strong>
+            <p>{focusHabit ? `${focusHabit.rate}%` : ''}</p>
           </div>
         </div>
       )}
@@ -1107,12 +1084,9 @@ function SettingsView({
 
       <div className="panel-section">
         <div className="section-heading">
-          <h2>Device reminders</h2>
+          <h2>Reminders</h2>
           {prefs.enabled ? <Bell size={18} /> : <BellOff size={18} />}
         </div>
-        <p className="helper-copy">
-          Enable this once, then set reminder times inside each habit. {getNotificationHelpText()}
-        </p>
         <button
           className={prefs.enabled ? 'secondary-action' : 'primary-action'}
           type="button"
@@ -1120,21 +1094,14 @@ function SettingsView({
           onClick={() => run(prefs.enabled ? onDisableReminders : onEnableReminders)}
         >
           {prefs.enabled ? <BellOff size={20} /> : <Bell size={20} />}
-          <span>{prefs.enabled ? 'Turn off reminders' : 'Enable reminders'}</span>
+          <span>{prefs.enabled ? 'Disable' : 'Enable'}</span>
         </button>
-      </div>
-
-      <div className="panel-section">
-        <div className="settings-note">
-          <Smartphone size={20} />
-          <p>For iPhone notifications, open Bujo from the Home Screen on iOS 16.4 or later after enabling device reminders.</p>
-        </div>
       </div>
 
       {prefs.enabled && (
         <div className="panel-section">
           <div className="section-heading">
-            <h2>Notification Sound</h2>
+            <h2>Sound</h2>
           </div>
           <select
             className="sound-select"
@@ -1579,12 +1546,11 @@ function EmptyHabits({ onAddHabit }: { onAddHabit: () => void }) {
   return (
     <div className="empty-panel">
       <Sparkles size={24} />
-      <h2>Tiny habits, no drama.</h2>
-      <p>Create one habit you can finish today. Keep it small enough to feel almost too easy.</p>
+      <h2>Start small</h2>
       <div className="empty-actions">
         <button className="primary-action" type="button" onClick={onAddHabit}>
           <Plus size={19} />
-          <span>Add first habit</span>
+          <span>Add habit</span>
         </button>
       </div>
     </div>

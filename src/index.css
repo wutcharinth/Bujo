@@ -689,20 +689,20 @@ main {
 }
 
 .drinks-tracker {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 10px;
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
 }
 
 .drink-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 16px 8px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 50%;
   background: var(--surface-strong);
   color: var(--text);
   cursor: pointer;
@@ -712,32 +712,35 @@ main {
 }
 
 .drink-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.9);
   border-color: var(--theme-color);
 }
 
 .drink-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  margin-bottom: 8px;
 }
 
-.drink-icon.water { color: var(--blue); background: rgba(40, 120, 255, 0.12); }
-.drink-icon.coffee { color: var(--gold); background: rgba(214, 157, 22, 0.12); }
-.drink-icon.alcohol { color: var(--violet); background: rgba(141, 109, 255, 0.12); }
+.drink-icon.water { color: var(--blue); }
+.drink-icon.coffee { color: var(--gold); }
+.drink-icon.alcohol { color: var(--violet); }
 
-.drink-btn strong {
-  font-size: 20px;
+.drink-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: var(--theme-color);
+  color: #fff;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1;
-}
-
-.drink-btn span {
-  font-size: 13px;
-  color: var(--muted);
+  pointer-events: none;
 }
 
 
