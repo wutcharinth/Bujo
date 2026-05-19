@@ -1005,6 +1005,56 @@ main {
   color: var(--text);
 }
 
+.day-picker {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.day-picker > span {
+  color: var(--text);
+  font-weight: 720;
+  font-size: 14px;
+  padding-left: 2px;
+}
+
+.day-chips {
+  display: flex;
+  gap: 6px;
+  justify-content: end;
+}
+
+.day-chip {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  aspect-ratio: 1;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 760;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 120ms ease;
+}
+
+.day-chip:active {
+  transform: scale(0.9);
+}
+
+.day-chip.active {
+  border-color: var(--blue);
+  color: #fff;
+  background: var(--blue);
+  box-shadow: 0 2px 8px rgba(40, 120, 255, 0.22);
+}
+
 .sheet-option-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

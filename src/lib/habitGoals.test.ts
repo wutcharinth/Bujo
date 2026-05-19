@@ -10,6 +10,7 @@ const baseHabit: Habit = {
   active: true,
   frequency: 'weekly',
   weeklyTarget: 2,
+  weeklyDays: [],
   reminderEnabled: false,
   reminderTime: '20:00',
   timerEnabled: false,

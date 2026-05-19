@@ -1,5 +1,11 @@
 import { getWeekDateKeys } from './dates'
-import type { Checkin, Habit } from '../types'
+import type { Checkin, Habit, WeekDay } from '../types'
+
+/** Mon-first abbreviations matching the app's week model. */
+export const WEEKDAY_LABELS: readonly string[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+/** Short single-letter labels for compact display. */
+export const WEEKDAY_SHORT: readonly string[] = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export function normalizeWeeklyTarget(value: unknown) {
   const numericValue = Number(value)
@@ -12,8 +18,16 @@ export function isWeeklyHabit(habit: Pick<Habit, 'frequency'>) {
   return habit.frequency === 'weekly'
 }
 
-export function getHabitCadenceLabel(habit: Pick<Habit, 'frequency' | 'weeklyTarget'>) {
-  return isWeeklyHabit(habit) ? `${normalizeWeeklyTarget(habit.weeklyTarget)}x/wk` : 'Daily'
+export function weeklyDaysLabel(days: WeekDay[]) {
+  if (!days.length) return ''
+  return days.map((d) => WEEKDAY_LABELS[d]).join(', ')
+}
+
+export function getHabitCadenceLabel(habit: Pick<Habit, 'frequency' | 'weeklyTarget' | 'weeklyDays'>) {
+  if (!isWeeklyHabit(habit)) return 'Daily'
+  const base = `${normalizeWeeklyTarget(habit.weeklyTarget)}x/wk`
+  const daysStr = weeklyDaysLabel(habit.weeklyDays ?? [])
+  return daysStr ? `${base} · ${daysStr}` : base
 }
 
 export function getHabitWeekCount(habitId: string, checkins: Array<Pick<Checkin, 'habitId' | 'date'>>, weekKeys = getWeekDateKeys()) {

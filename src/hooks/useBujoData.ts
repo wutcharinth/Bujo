@@ -17,7 +17,7 @@ import { getDateKey } from '../lib/dates'
 import { normalizeWeeklyTarget } from '../lib/habitGoals'
 import { getPlatformHints } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
-import type { Checkin, Habit, NewHabitInput, NotificationPrefs } from '../types'
+import type { Checkin, Habit, NewHabitInput, NotificationPrefs, WeekDay } from '../types'
 
 const defaultPrefs = (): NotificationPrefs => ({
   enabled: false,
@@ -38,11 +38,17 @@ export function toHabitWrite(input: NewHabitInput): NewHabitInput {
     color: input.color,
     frequency: input.frequency === 'weekly' ? 'weekly' : 'daily',
     weeklyTarget: normalizeWeeklyTarget(input.weeklyTarget),
+    weeklyDays: Array.isArray(input.weeklyDays) ? [...input.weeklyDays].sort() : [],
     reminderEnabled: input.reminderEnabled,
     reminderTime: input.reminderTime || '20:00',
     timerEnabled: input.timerEnabled,
     timerMinutes: Math.min(180, Math.max(1, Number(input.timerMinutes) || 1)),
   }
+}
+
+function parseWeeklyDays(raw: unknown): WeekDay[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((v): v is WeekDay => typeof v === 'number' && v >= 0 && v <= 6).sort()
 }
 
 function mapHabit(id: string, data: Record<string, unknown>): Habit {
@@ -54,6 +60,7 @@ function mapHabit(id: string, data: Record<string, unknown>): Habit {
     active: data.active !== false,
     frequency: data.frequency === 'weekly' ? 'weekly' : 'daily',
     weeklyTarget: normalizeWeeklyTarget(data.weeklyTarget),
+    weeklyDays: parseWeeklyDays(data.weeklyDays),
     reminderEnabled: data.reminderEnabled === true,
     reminderTime: typeof data.reminderTime === 'string' ? data.reminderTime : '20:00',
     lastReminderDate: typeof data.lastReminderDate === 'string' ? data.lastReminderDate : undefined,

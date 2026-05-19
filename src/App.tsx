@@ -41,11 +41,11 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
 import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
-import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget } from './lib/habitGoals'
+import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget, WEEKDAY_SHORT } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { Habit, HabitColor, HabitIcon, NewHabitInput } from './types'
+import type { Habit, HabitColor, HabitIcon, NewHabitInput, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'settings'
 
@@ -93,6 +93,7 @@ const defaultHabit: NewHabitInput = {
   color: 'blue',
   frequency: 'daily',
   weeklyTarget: 3,
+  weeklyDays: [],
   reminderEnabled: false,
   reminderTime: '20:00',
   timerEnabled: false,
@@ -110,6 +111,7 @@ function habitToInput(habit: Habit | null): NewHabitInput {
     color: habit.color,
     frequency: habit.frequency,
     weeklyTarget: habit.weeklyTarget,
+    weeklyDays: habit.weeklyDays ?? [],
     reminderEnabled: habit.reminderEnabled,
     reminderTime: habit.reminderTime,
     timerEnabled: habit.timerEnabled,
@@ -812,6 +814,13 @@ function HabitSheet({
       weeklyTarget: normalizeWeeklyTarget(current.weeklyTarget + amount),
     }))
   }
+  const toggleWeeklyDay = (day: WeekDay) => {
+    setInput((current) => {
+      const has = current.weeklyDays.includes(day)
+      const next = has ? current.weeklyDays.filter((d) => d !== day) : [...current.weeklyDays, day].sort()
+      return { ...current, weeklyDays: next }
+    })
+  }
 
   return (
     <div className="sheet-backdrop" role="presentation">
@@ -913,6 +922,7 @@ function HabitSheet({
             </button>
           </div>
           {input.frequency === 'weekly' && (
+            <>
             <div className="target-stepper">
               <span>
                 <CalendarDays size={16} />
@@ -926,6 +936,24 @@ function HabitSheet({
                 +
               </button>
             </div>
+            <div className="day-picker">
+              <span>Days</span>
+              <div className="day-chips">
+                {([0, 1, 2, 3, 4, 5, 6] as WeekDay[]).map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    className={input.weeklyDays.includes(day) ? 'day-chip active' : 'day-chip'}
+                    onClick={() => toggleWeeklyDay(day)}
+                    aria-label={WEEKDAY_SHORT[day]}
+                    aria-pressed={input.weeklyDays.includes(day)}
+                  >
+                    {WEEKDAY_SHORT[day]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            </>
           )}
         </div>
 
