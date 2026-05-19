@@ -46,6 +46,8 @@ import {
   Utensils,
   WashingMachine,
   X,
+  Beer,
+  GlassWater,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
@@ -54,7 +56,7 @@ import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeekl
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
+import type { DrinkCheckin, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'settings'
 
@@ -262,6 +264,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 activeHabits={bujo.activeHabits}
                 checkins={bujo.checkins}
                 moods={bujo.moods}
+                drinks={bujo.drinks}
                 completedToday={completedToday}
                 progress={progress}
                 streak={appStreaks.current}
@@ -269,6 +272,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 onAddHabit={openCreateSheet}
                 onToggle={bujo.toggleToday}
                 onSetMood={bujo.setMood}
+                onUpdateDrink={bujo.updateDrinkCount}
               />
             )}
             {activeTab === 'habits' && (
@@ -418,10 +422,70 @@ function MoodTracker({
   )
 }
 
+function DrinksTracker({
+  drinks,
+  onUpdateDrink,
+}: {
+  drinks: DrinkCheckin[]
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol', delta: number) => Promise<void>
+}) {
+  const todayKey = getDateKey()
+  const todaysDrinks = drinks.find((d) => d.date === todayKey) || { water: 0, coffee: 0, alcohol: 0 }
+
+  const handleContext = (e: React.MouseEvent, type: 'water' | 'coffee' | 'alcohol') => {
+    e.preventDefault()
+    onUpdateDrink(type, -1)
+  }
+
+  return (
+    <div className="panel-section">
+      <div className="section-heading">
+        <h2>Daily Drinks</h2>
+        <span>Tap +, Long press -</span>
+      </div>
+      <div className="drinks-tracker">
+        <button 
+          className="drink-btn" 
+          type="button" 
+          onClick={() => onUpdateDrink('water', 1)}
+          onContextMenu={(e) => handleContext(e, 'water')}
+        >
+          <div className="drink-icon water"><GlassWater size={24} /></div>
+          <strong>{todaysDrinks.water}</strong>
+          <span>Water</span>
+        </button>
+
+        <button 
+          className="drink-btn" 
+          type="button" 
+          onClick={() => onUpdateDrink('coffee', 1)}
+          onContextMenu={(e) => handleContext(e, 'coffee')}
+        >
+          <div className="drink-icon coffee"><Coffee size={24} /></div>
+          <strong>{todaysDrinks.coffee}</strong>
+          <span>Coffee</span>
+        </button>
+
+        <button 
+          className="drink-btn" 
+          type="button" 
+          onClick={() => onUpdateDrink('alcohol', 1)}
+          onContextMenu={(e) => handleContext(e, 'alcohol')}
+        >
+          <div className="drink-icon alcohol"><Beer size={24} /></div>
+          <strong>{todaysDrinks.alcohol}</strong>
+          <span>Alcohol</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function TodayView({
   activeHabits,
   checkins,
   moods,
+  drinks,
   completedToday,
   progress,
   streak,
@@ -429,10 +493,12 @@ function TodayView({
   onAddHabit,
   onToggle,
   onSetMood,
+  onUpdateDrink,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
   moods: MoodCheckin[]
+  drinks: DrinkCheckin[]
   completedToday: Set<string>
   progress: number
   streak: number
@@ -440,6 +506,7 @@ function TodayView({
   onAddHabit: () => void
   onToggle: (habitId: string, completed: boolean) => Promise<void>
   onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => Promise<void>
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol', delta: number) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const completedCount = completedToday.size
@@ -497,6 +564,7 @@ function TodayView({
       </div>
 
       <MoodTracker moods={moods} onSetMood={onSetMood} />
+      <DrinksTracker drinks={drinks} onUpdateDrink={onUpdateDrink} />
 
       {activeTimer && (
         <TimerPanel
@@ -1104,7 +1172,7 @@ function SettingsView({
           <div className="compact-label" style={{ marginTop: '8px' }}>
             <span>Primary Color</span>
           </div>
-          <div className="icon-picker">
+          <div className="theme-color-picker">
             {[
               { label: 'Blue', value: '#2878ff' },
               { label: 'Green', value: '#2aa86b' },
@@ -1113,16 +1181,20 @@ function SettingsView({
               { label: 'Gold', value: '#d69d16' },
               { label: 'Teal', value: '#12a7a1' },
               { label: 'Pink', value: '#ef5da8' },
+              { label: 'Indigo', value: '#4f68ff' },
+              { label: 'Amber', value: '#e67e22' },
+              { label: 'Mint', value: '#2ecc8e' },
+              { label: 'Gray', value: '#7b8492' },
             ].map((colorOpt) => (
               <button
                 key={colorOpt.value}
-                className="icon-picker-btn"
+                className="theme-color-btn"
                 type="button"
                 onClick={() => run(() => onSavePrefs({ themeColor: colorOpt.value }))}
-                style={{ background: colorOpt.value, color: '#fff', borderRadius: '50%', borderColor: prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff') ? 'var(--text)' : 'transparent' }}
+                style={{ background: colorOpt.value, color: '#fff', borderColor: prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff') ? 'var(--text)' : 'transparent' }}
                 aria-label={colorOpt.label}
               >
-                {(prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff')) && <Check size={16} />}
+                {(prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff')) && <Check size={18} />}
               </button>
             ))}
           </div>

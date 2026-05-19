@@ -17,7 +17,7 @@ import { getDateKey } from '../lib/dates'
 import { normalizeWeeklyTarget } from '../lib/habitGoals'
 import { getPlatformHints } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
-import type { Checkin, Habit, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from '../types'
+import type { Checkin, DrinkCheckin, Habit, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from '../types'
 
 const defaultPrefs = (): NotificationPrefs => ({
   enabled: false,
@@ -86,10 +86,21 @@ function mapMoodCheckin(id: string, data: Record<string, unknown>): MoodCheckin 
   }
 }
 
+function mapDrinkCheckin(id: string, data: Record<string, unknown>): DrinkCheckin {
+  return {
+    id,
+    date: typeof data.date === 'string' ? data.date : '',
+    water: typeof data.water === 'number' ? data.water : 0,
+    coffee: typeof data.coffee === 'number' ? data.coffee : 0,
+    alcohol: typeof data.alcohol === 'number' ? data.alcohol : 0,
+  }
+}
+
 export function useBujoData(user: User | null) {
   const [habits, setHabits] = useState<Habit[]>([])
   const [checkins, setCheckins] = useState<Checkin[]>([])
   const [moods, setMoods] = useState<MoodCheckin[]>([])
+  const [drinks, setDrinks] = useState<DrinkCheckin[]>([])
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs)
   const [loading, setLoading] = useState(Boolean(user))
   const [error, setError] = useState<string | null>(null)
@@ -149,6 +160,18 @@ export function useBujoData(user: User | null) {
       (snapshotError) => setError(snapshotError.message),
     )
 
+    const unsubscribeDrinks = onSnapshot(
+      collection(db, basePath, 'drinks'),
+      (snapshot) => {
+        setDrinks(
+          snapshot.docs
+            .map((item) => mapDrinkCheckin(item.id, item.data()))
+            .filter((drink) => drink.date),
+        )
+      },
+      (snapshotError) => setError(snapshotError.message),
+    )
+
     const prefsRef = doc(db, basePath, 'notificationPrefs', 'main')
     const unsubscribePrefs = onSnapshot(
       prefsRef,
@@ -181,6 +204,7 @@ export function useBujoData(user: User | null) {
       unsubscribeHabits()
       unsubscribeCheckins()
       unsubscribeMoods()
+      unsubscribeDrinks()
       unsubscribePrefs()
     }
   }, [user])
@@ -272,6 +296,30 @@ export function useBujoData(user: User | null) {
     [user],
   )
 
+  const updateDrinkCount = useCallback(
+    async (type: 'water' | 'coffee' | 'alcohol', delta: number) => {
+      if (!user || !db) return
+
+      const date = getDateKey()
+      const drinkRef = doc(db, userPath(user.uid), 'drinks', date)
+
+      const currentDrinks = drinks.find((d) => d.id === date)
+      const currentCount = currentDrinks ? currentDrinks[type] : 0
+      const nextCount = Math.max(0, currentCount + delta)
+
+      await setDoc(
+        drinkRef,
+        {
+          date,
+          [type]: nextCount,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      )
+    },
+    [user, drinks],
+  )
+
   const saveNotificationPrefs = useCallback(
     async (updates: Partial<NotificationPrefs>) => {
       if (!user || !db) return
@@ -312,6 +360,7 @@ export function useBujoData(user: User | null) {
     activeHabits,
     checkins,
     moods,
+    drinks,
     prefs,
     loading,
     error,
@@ -320,6 +369,7 @@ export function useBujoData(user: User | null) {
     archiveHabit,
     toggleToday,
     setMood,
+    updateDrinkCount,
     saveNotificationPrefs,
     saveFcmToken,
   }

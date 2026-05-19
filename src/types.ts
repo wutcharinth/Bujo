@@ -67,6 +67,14 @@ export interface MoodCheckin {
   value: MoodValue
 }
 
+export interface DrinkCheckin {
+  id: string
+  date: string
+  water: number
+  coffee: number
+  alcohol: number
+}
+
 export interface NewHabitInput {
   name: string
   icon: HabitIcon
