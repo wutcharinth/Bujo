@@ -115,15 +115,15 @@ button {
   width: min(100%, 480px);
   min-height: 100svh;
   margin: 0 auto;
-  padding: max(18px, env(safe-area-inset-top)) 16px calc(88px + env(safe-area-inset-bottom));
+  padding: max(14px, env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom));
 }
 
 .top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px 2px 18px;
+  gap: 12px;
+  padding: 4px 2px 10px;
 }
 
 .top-bar h1,
@@ -140,16 +140,16 @@ button {
 }
 
 .top-bar h1 {
-  font-size: 32px;
+  font-size: 26px;
 }
 
 .eyebrow,
 .panel-kicker {
-  margin: 0 0 5px;
+  margin: 0 0 2px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 720;
-  letter-spacing: 0;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -159,7 +159,7 @@ main {
 
 .screen-stack {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .hero-panel,
@@ -180,15 +180,15 @@ main {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 18px;
-  min-height: 154px;
-  padding: 24px;
-  border-radius: 30px;
+  gap: 14px;
+  min-height: 0;
+  padding: 16px 18px;
+  border-radius: 22px;
 }
 
 .hero-panel h2 {
-  margin-bottom: 8px;
-  font-size: 28px;
+  margin-bottom: 0;
+  font-size: 22px;
 }
 
 .hero-panel p,
@@ -205,7 +205,7 @@ main {
   --progress: 0%;
   display: grid;
   place-items: center;
-  width: 96px;
+  width: 64px;
   aspect-ratio: 1;
   border-radius: 50%;
   background:
@@ -215,8 +215,8 @@ main {
 }
 
 .progress-ring span {
-  margin-top: 8px;
-  font-size: 27px;
+  margin-top: 4px;
+  font-size: 18px;
   font-weight: 800;
 }
 
@@ -240,15 +240,15 @@ main {
 }
 
 .progress-ring small {
-  margin-top: -27px;
+  margin-top: -18px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .metric-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
 }
 
 .metric-strip .metric:nth-child(3) {
@@ -258,35 +258,37 @@ main {
 .insight-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .metric {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 2px 9px;
+  gap: 2px 7px;
   align-items: center;
-  min-height: 82px;
-  padding: 15px;
+  min-height: 0;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: 16px;
   background: var(--surface-muted);
 }
 
 .metric svg {
   color: var(--theme-color);
+  width: 15px;
+  height: 15px;
 }
 
 .metric span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .metric strong {
   grid-column: 1 / -1;
   color: var(--text);
-  font-size: 26px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -342,7 +344,7 @@ main {
 .habit-list,
 .grouped-list {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 
 .habit-row,
@@ -350,11 +352,11 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 64px;
+  min-height: 52px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: 16px;
   background: var(--surface-strong);
   color: var(--text);
 }
@@ -382,7 +384,7 @@ main {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border: 0;
   color: inherit;
   background: transparent;
@@ -403,14 +405,14 @@ main {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .habit-identity strong {
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -425,9 +427,9 @@ main {
 }
 
 .habit-glyph {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   color: #fff;
 }
 
@@ -617,32 +619,32 @@ main {
 
 .panel-section {
   display: grid;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
 }
 
 .section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .section-heading h2 {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .section-heading span,
 .section-heading svg {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .mood-tracker {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .mood-row {
@@ -652,21 +654,21 @@ main {
 }
 
 .mood-row > span {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
 }
 
 .mood-options {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .mood-btn {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -684,22 +686,22 @@ main {
   background: var(--theme-color);
   border-color: var(--theme-color);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(40, 120, 255, 0.3);
-  transform: scale(1.1);
+  box-shadow: 0 3px 10px rgba(40, 120, 255, 0.3);
+  transform: scale(1.05);
 }
 
 .drinks-tracker {
   display: flex;
-  gap: 16px;
-  margin-top: 4px;
+  gap: 12px;
+  margin-top: 0;
 }
 
 .drink-btn {
   position: relative;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 50%;

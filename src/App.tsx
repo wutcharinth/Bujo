@@ -1535,7 +1535,7 @@ function HabitIdentity({ habit }: { habit: Habit }) {
   return (
     <div className="habit-identity">
       <span className={`habit-glyph ${habit.color}`}>
-        <Icon size={21} />
+        <Icon size={18} />
       </span>
       <strong>{habit.name}</strong>
     </div>
@@ -1584,7 +1584,7 @@ function SplashScreen() {
   return (
     <div className="splash-screen">
       <div className="app-mark">
-        <Check size={32} />
+        <Leaf size={32} />
       </div>
       <p>Bujo</p>
     </div>
@@ -1595,7 +1595,7 @@ function ConfigScreen() {
   return (
     <div className="auth-screen">
       <div className="app-mark">
-        <Check size={31} />
+        <Leaf size={31} />
       </div>
       <h1>Connect Firebase</h1>
       <p>Add your Firebase values to `.env.local`, then restart the dev server.</p>
@@ -1607,7 +1607,7 @@ function SignInScreen({ error, onSignIn }: { error: string | null; onSignIn: () 
   return (
     <div className="auth-screen">
       <div className="app-mark">
-        <Check size={31} />
+        <Leaf size={31} />
       </div>
       <p className="eyebrow">Bujo</p>
       <h1>Small habits, beautifully kept.</h1>
