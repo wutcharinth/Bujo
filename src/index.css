@@ -1748,6 +1748,122 @@ main {
   }
 }
 
+/* --- High Quality Micro-animations & Transitions --- */
+
+/* Page transition fade-in-up */
+.screen-stack > *,
+.auth-screen > * {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Staggered load animation */
+.screen-stack > *:nth-child(1) { animation-delay: 0.05s; }
+.screen-stack > *:nth-child(2) { animation-delay: 0.1s; }
+.screen-stack > *:nth-child(3) { animation-delay: 0.15s; }
+.screen-stack > *:nth-child(4) { animation-delay: 0.2s; }
+.screen-stack > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* Habit matrix rows fade in */
+.matrix-row {
+  animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth pop bounce for checklist bubble */
+.check-control {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, background 0.2s ease;
+}
+
+.check-control:active {
+  transform: scale(0.85);
+}
+
+.completed .check-control {
+  animation: checkPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Drink badge pop bounce on update */
+.drink-badge {
+  animation: badgePop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes badgePop {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translate(50%, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+}
+
+/* Splash screen animation */
+.splash-screen {
+  animation: fadeOut 0.3s ease 1s forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.splash-screen .app-mark {
+  animation: pulseScale 2s infinite ease-in-out;
+}
+
+@keyframes pulseScale {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 24px 54px rgba(40, 120, 255, 0.24);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 30px 64px rgba(40, 120, 255, 0.35);
+  }
+}
+
+/* Smooth scaling hover states for standard buttons */
+.primary-action, .secondary-action {
+  transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary-action:active, .secondary-action:active {
+  transform: scale(0.97);
+}
+
+/* Interactive ring hover/spin */
+.progress-ring {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.progress-ring:hover {
+  transform: scale(1.05);
+}
+
 @media (min-width: 720px) {
   .app-shell {
     padding-top: 26px;
