@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { getDateKey } from '../lib/dates'
+import { normalizeWeeklyTarget } from '../lib/habitGoals'
 import { getPlatformHints } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
 import type { Checkin, Habit, NewHabitInput, NotificationPrefs } from '../types'
@@ -35,6 +36,8 @@ export function toHabitWrite(input: NewHabitInput): NewHabitInput {
     name: input.name.trim(),
     icon: input.icon,
     color: input.color,
+    frequency: input.frequency === 'weekly' ? 'weekly' : 'daily',
+    weeklyTarget: normalizeWeeklyTarget(input.weeklyTarget),
     reminderEnabled: input.reminderEnabled,
     reminderTime: input.reminderTime || '20:00',
     timerEnabled: input.timerEnabled,
@@ -49,6 +52,8 @@ function mapHabit(id: string, data: Record<string, unknown>): Habit {
     icon: typeof data.icon === 'string' ? (data.icon as Habit['icon']) : 'sparkles',
     color: typeof data.color === 'string' ? (data.color as Habit['color']) : 'blue',
     active: data.active !== false,
+    frequency: data.frequency === 'weekly' ? 'weekly' : 'daily',
+    weeklyTarget: normalizeWeeklyTarget(data.weeklyTarget),
     reminderEnabled: data.reminderEnabled === true,
     reminderTime: typeof data.reminderTime === 'string' ? data.reminderTime : '20:00',
     lastReminderDate: typeof data.lastReminderDate === 'string' ? data.lastReminderDate : undefined,

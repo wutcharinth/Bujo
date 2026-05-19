@@ -1,6 +1,6 @@
 # Bujo
 
-Bujo is an Apple-inspired mobile PWA for small daily habits, Google sign-in, streaks, an insight-focused progress dashboard, per-habit reminders, and optional habit timers.
+Bujo is an Apple-inspired mobile PWA for small daily and weekly habits, Google sign-in, streaks, an insight-focused progress dashboard, per-habit reminders, and optional habit timers.
 
 ## Local Setup
 
@@ -43,7 +43,7 @@ firebase deploy --only hosting,firestore,functions
 ## Data Shape
 
 - `users/{uid}` stores the signed-in profile and timezone.
-- `users/{uid}/habits/{habitId}` stores active and archived habits, per-habit reminder settings, and optional timer durations.
+- `users/{uid}/habits/{habitId}` stores active and archived habits, daily/weekly cadence, per-habit reminder settings, and optional timer durations.
 - `users/{uid}/checkins/{date_habitId}` stores daily habit completions.
 - `users/{uid}/notificationPrefs/main` stores the device reminder master switch and timezone.
 - `users/{uid}/fcmTokens/{token}` stores device tokens for Firebase Cloud Messaging.

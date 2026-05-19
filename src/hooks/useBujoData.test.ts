@@ -10,6 +10,8 @@ describe('habit write payloads', () => {
       icon: 'book',
       color: 'gold',
       active: true,
+      frequency: 'weekly',
+      weeklyTarget: 2,
       reminderEnabled: true,
       reminderTime: '21:00',
       lastReminderDate: undefined,
@@ -23,6 +25,8 @@ describe('habit write payloads', () => {
       name: 'Read',
       icon: 'book',
       color: 'gold',
+      frequency: 'weekly',
+      weeklyTarget: 2,
       reminderEnabled: true,
       reminderTime: '21:00',
       timerEnabled: true,
@@ -39,6 +43,8 @@ describe('habit write payloads', () => {
         name: 'Move',
         icon: 'steps',
         color: 'green',
+        frequency: 'weekly',
+        weeklyTarget: Number.NaN,
         reminderEnabled: true,
         reminderTime: '',
         timerEnabled: true,
@@ -46,6 +52,8 @@ describe('habit write payloads', () => {
       }),
     ).toMatchObject({
       reminderTime: '20:00',
+      frequency: 'weekly',
+      weeklyTarget: 3,
       timerMinutes: 1,
     })
   })

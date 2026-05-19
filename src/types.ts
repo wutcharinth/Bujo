@@ -1,16 +1,24 @@
 export type HabitIcon =
   | 'book'
+  | 'brain'
+  | 'bike'
   | 'drop'
   | 'dumbbell'
   | 'heart'
   | 'leaf'
+  | 'laundry'
   | 'moon'
   | 'pencil'
   | 'sparkles'
   | 'steps'
   | 'sun'
+  | 'utensils'
+  | 'coffee'
+  | 'shower'
 
-export type HabitColor = 'blue' | 'green' | 'coral' | 'gold' | 'violet' | 'gray'
+export type HabitFrequency = 'daily' | 'weekly'
+
+export type HabitColor = 'blue' | 'green' | 'coral' | 'gold' | 'violet' | 'gray' | 'teal' | 'pink' | 'indigo'
 
 export interface Habit {
   id: string
@@ -18,6 +26,8 @@ export interface Habit {
   icon: HabitIcon
   color: HabitColor
   active: boolean
+  frequency: HabitFrequency
+  weeklyTarget: number
   reminderEnabled: boolean
   reminderTime: string
   lastReminderDate?: string
@@ -42,6 +52,8 @@ export interface NewHabitInput {
   name: string
   icon: HabitIcon
   color: HabitColor
+  frequency: HabitFrequency
+  weeklyTarget: number
   reminderEnabled: boolean
   reminderTime: string
   timerEnabled: boolean

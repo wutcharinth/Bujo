@@ -5,10 +5,14 @@ import {
   BarChart3,
   Bell,
   BellOff,
+  Bike,
   BookOpen,
+  Brain,
+  CalendarDays,
   Check,
   ChevronRight,
   Clock3,
+  Coffee,
   Droplets,
   Dumbbell,
   Flame,
@@ -25,15 +29,19 @@ import {
   Plus,
   RotateCcw,
   Settings,
+  ShowerHead,
   Smartphone,
   Sparkles,
   Sun,
   Timer,
+  Utensils,
+  WashingMachine,
   X,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
 import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
+import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
@@ -42,16 +50,22 @@ import type { Habit, HabitColor, HabitIcon, NewHabitInput } from './types'
 type TabId = 'today' | 'habits' | 'progress' | 'settings'
 
 const habitIcons: Record<HabitIcon, LucideIcon> = {
+  bike: Bike,
   book: BookOpen,
+  brain: Brain,
+  coffee: Coffee,
   drop: Droplets,
   dumbbell: Dumbbell,
   heart: Heart,
+  laundry: WashingMachine,
   leaf: Leaf,
   moon: Moon,
   pencil: Pencil,
+  shower: ShowerHead,
   sparkles: Sparkles,
   steps: Footprints,
   sun: Sun,
+  utensils: Utensils,
 }
 
 const colorNames: Record<HabitColor, string> = {
@@ -61,6 +75,9 @@ const colorNames: Record<HabitColor, string> = {
   gold: 'Gold',
   violet: 'Violet',
   gray: 'Gray',
+  teal: 'Teal',
+  pink: 'Pink',
+  indigo: 'Indigo',
 }
 
 const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
@@ -74,6 +91,8 @@ const defaultHabit: NewHabitInput = {
   name: '',
   icon: 'sparkles',
   color: 'blue',
+  frequency: 'daily',
+  weeklyTarget: 3,
   reminderEnabled: false,
   reminderTime: '20:00',
   timerEnabled: false,
@@ -89,6 +108,8 @@ function habitToInput(habit: Habit | null): NewHabitInput {
     name: habit.name,
     icon: habit.icon,
     color: habit.color,
+    frequency: habit.frequency,
+    weeklyTarget: habit.weeklyTarget,
     reminderEnabled: habit.reminderEnabled,
     reminderTime: habit.reminderTime,
     timerEnabled: habit.timerEnabled,
@@ -130,6 +151,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   const [notice, setNotice] = useState<string | null>(null)
   const bujo = useBujoData(authState.user)
   const todayKey = getDateKey()
+  const currentWeekKeys = useMemo(() => getWeekDateKeys(), [])
 
   const completedToday = useMemo(
     () => new Set(bujo.checkins.filter((checkin) => checkin.date === todayKey).map((checkin) => checkin.habitId)),
@@ -138,7 +160,13 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
 
   const allCheckinDates = useMemo(() => bujo.checkins.map((checkin) => checkin.date), [bujo.checkins])
   const appStreaks = useMemo(() => calculateStreaks(allCheckinDates), [allCheckinDates])
-  const progress = bujo.activeHabits.length ? completedToday.size / bujo.activeHabits.length : 0
+  const onTrackCount = useMemo(
+    () =>
+      bujo.activeHabits.filter((habit) => getHabitGoalProgress(habit, bujo.checkins, todayKey, currentWeekKeys).onTrack)
+        .length,
+    [bujo.activeHabits, bujo.checkins, currentWeekKeys, todayKey],
+  )
+  const progress = bujo.activeHabits.length ? onTrackCount / bujo.activeHabits.length : 0
   const greetingName = authState.user?.displayName?.split(' ')[0] ?? 'there'
 
   const openCreateSheet = () => {
@@ -195,6 +223,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 completedToday={completedToday}
                 progress={progress}
                 streak={appStreaks.current}
+                onTrackCount={onTrackCount}
                 onAddHabit={openCreateSheet}
                 onToggle={bujo.toggleToday}
               />
@@ -282,6 +311,7 @@ function TodayView({
   completedToday,
   progress,
   streak,
+  onTrackCount,
   onAddHabit,
   onToggle,
 }: {
@@ -290,12 +320,14 @@ function TodayView({
   completedToday: Set<string>
   progress: number
   streak: number
+  onTrackCount: number
   onAddHabit: () => void
   onToggle: (habitId: string, completed: boolean) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const completedCount = completedToday.size
   const progressPercent = Math.round(progress * 100)
+  const weekKeys = useMemo(() => getWeekDateKeys(), [])
 
   useEffect(() => {
     if (!activeTimer?.isRunning) return
@@ -333,8 +365,8 @@ function TodayView({
       <div className="hero-panel">
         <div>
           <p className="panel-kicker">Today</p>
-          <h2>{activeHabits.length ? `${completedCount} of ${activeHabits.length} done` : 'Start small today'}</h2>
-          <p>{activeHabits.length ? 'A quiet check-in keeps the day moving.' : 'Pick a few habits and Bujo will keep it light.'}</p>
+          <h2>{activeHabits.length ? `${onTrackCount} of ${activeHabits.length} on track` : 'Start small today'}</h2>
+          <p>{activeHabits.length ? 'Tiny wins count. Weekly habits can land any day.' : 'One gentle habit is enough to begin.'}</p>
         </div>
         <div className="progress-ring" style={{ '--progress': `${progressPercent}%` } as CSSProperties}>
           <span>{progressPercent}</span>
@@ -344,7 +376,7 @@ function TodayView({
 
       <div className="metric-strip">
         <Metric icon={Flame} label="Current streak" value={`${streak}d`} />
-        <Metric icon={Check} label="Today" value={`${completedCount}/${activeHabits.length}`} />
+        <Metric icon={Check} label="Checked today" value={`${completedCount}/${activeHabits.length}`} />
       </div>
 
       {activeTimer && (
@@ -382,13 +414,17 @@ function TodayView({
             const completed = completedToday.has(habit.id)
             const dates = checkins.filter((checkin) => checkin.habitId === habit.id).map((checkin) => checkin.date)
             const habitStreak = calculateStreaks(dates).current
+            const goal = getHabitGoalProgress(habit, checkins, getDateKey(), weekKeys)
+            const weekly = isWeeklyHabit(habit)
 
             return (
               <HabitRow
                 key={habit.id}
                 habit={habit}
                 completed={completed}
-                accessory={`${habitStreak}d`}
+                onTrack={goal.onTrack}
+                accessory={weekly ? goal.label ?? `${goal.weekCount}/${goal.target} wk` : `${habitStreak}d`}
+                accessoryIcon={weekly ? CalendarDays : Flame}
                 onClick={async () => {
                   navigator.vibrate?.(8)
                   await onToggle(habit.id, completed)
@@ -471,24 +507,19 @@ function ProgressView({
   const activeHabitIds = new Set(activeHabits.map((habit) => habit.id))
   const activeCheckins = checkins.filter((checkin) => activeHabitIds.has(checkin.habitId))
   const doneIdsForDate = (dateKey: string) => new Set(activeCheckins.filter((checkin) => checkin.date === dateKey).map((checkin) => checkin.habitId))
-  const countCompletions = (dateKeys: string[]) => activeCheckins.filter((checkin) => dateKeys.includes(checkin.date)).length
   const dayRate = (dateKey: string) => {
     if (!activeHabits.length) return 0
     return Math.round((doneIdsForDate(dateKey).size / activeHabits.length) * 100)
   }
-  const possibleCurrent = activeHabits.length * currentSevenKeys.length
-  const possiblePrevious = activeHabits.length * previousSevenKeys.length
-  const currentCompletions = countCompletions(currentSevenKeys)
-  const previousCompletions = countCompletions(previousSevenKeys)
-  const currentRate = possibleCurrent ? Math.round((currentCompletions / possibleCurrent) * 100) : 0
-  const previousRate = possiblePrevious ? Math.round((previousCompletions / possiblePrevious) * 100) : 0
+  const currentStats = getWindowGoalStats(activeHabits, activeCheckins, currentSevenKeys)
+  const previousStats = getWindowGoalStats(activeHabits, activeCheckins, previousSevenKeys)
+  const currentRate = currentStats.rate
+  const previousRate = previousStats.rate
   const trend = currentRate - previousRate
   const lastThreeKeys = recentKeys.slice(-3)
   const previousThreeKeys = recentKeys.slice(-6, -3)
-  const lastThreePossible = activeHabits.length * lastThreeKeys.length
-  const previousThreePossible = activeHabits.length * previousThreeKeys.length
-  const lastThreeRate = lastThreePossible ? Math.round((countCompletions(lastThreeKeys) / lastThreePossible) * 100) : 0
-  const previousThreeRate = previousThreePossible ? Math.round((countCompletions(previousThreeKeys) / previousThreePossible) * 100) : 0
+  const lastThreeRate = getWindowGoalStats(activeHabits, activeCheckins, lastThreeKeys).rate
+  const previousThreeRate = getWindowGoalStats(activeHabits, activeCheckins, previousThreeKeys).rate
   const shortTrend = lastThreeRate - previousThreeRate
   const perfectDays = currentSevenKeys.filter((dateKey) => {
     const doneThatDay = doneIdsForDate(dateKey)
@@ -506,9 +537,7 @@ function ProgressView({
       const mondayFirstIndex = (dateFromKey(dateKey).getDay() + 6) % 7
       return mondayFirstIndex === index
     })
-    const possible = matchingDays.length * activeHabits.length
-    const done = countCompletions(matchingDays)
-    const rate = possible ? Math.round((done / possible) * 100) : 0
+    const rate = getWindowGoalStats(activeHabits, activeCheckins, matchingDays).rate
 
     return { label, rate }
   })
@@ -517,10 +546,11 @@ function ProgressView({
     .map((habit) => {
       const habitDates = activeCheckins.filter((checkin) => checkin.habitId === habit.id).map((checkin) => checkin.date)
       const recentDone = recentKeys.filter((dateKey) => habitDates.includes(dateKey)).length
-      const rate = Math.round((recentDone / recentKeys.length) * 100)
+      const habitStats = getWindowGoalStats([habit], activeCheckins, recentKeys)
+      const rate = habitStats.rate
       const habitStreak = calculateStreaks(habitDates).current
 
-      return { habit, recentDone, rate, habitStreak }
+      return { habit, recentDone, rate, habitStreak, targetTotal: habitStats.possible }
     })
     .sort((a, b) => b.rate - a.rate)
   const strongestHabit = habitBreakdown[0]
@@ -622,7 +652,7 @@ function ProgressView({
           {habitBreakdown.length === 0 ? (
             <InlineMessage message="Your per-habit insight will appear after you add a habit." />
           ) : (
-            habitBreakdown.map(({ habit, recentDone, rate, habitStreak }) => (
+            habitBreakdown.map(({ habit, recentDone, rate, habitStreak, targetTotal }) => (
               <div className="health-row" key={habit.id}>
                 <HabitIdentity habit={habit} />
                 <div className="health-meter" aria-label={`${habit.name} completion ${rate}%`}>
@@ -630,7 +660,7 @@ function ProgressView({
                 </div>
                 <strong>{rate}%</strong>
                 <small>
-                  {recentDone}/14 · {habitStreak}d streak
+                  {isWeeklyHabit(habit) ? `${recentDone}/${targetTotal} target` : `${recentDone}/14`} · {habitStreak}d streak
                 </small>
               </div>
             ))
@@ -648,7 +678,11 @@ function ProgressView({
           <div className="mini-insight">
             <span>Focus next</span>
             <strong>{focusHabit?.habit.name ?? 'None yet'}</strong>
-            <p>{focusHabit ? `${focusHabit.recentDone}/14 recently. Make this one tiny.` : 'Add a habit to start.'}</p>
+            <p>
+              {focusHabit
+                ? `${focusHabit.recentDone}/${isWeeklyHabit(focusHabit.habit) ? focusHabit.targetTotal : 14} recently. Make this one tiny.`
+                : 'Add a habit to start.'}
+            </p>
           </div>
         </div>
       )}
@@ -771,6 +805,13 @@ function HabitSheet({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const canSave = input.name.trim().length > 0
+  const weeklyTarget = normalizeWeeklyTarget(input.weeklyTarget)
+  const adjustWeeklyTarget = (amount: number) => {
+    setInput((current) => ({
+      ...current,
+      weeklyTarget: normalizeWeeklyTarget(current.weeklyTarget + amount),
+    }))
+  }
 
   return (
     <div className="sheet-backdrop" role="presentation">
@@ -814,7 +855,10 @@ function HabitSheet({
         {saveError && <InlineMessage tone="warning" message={saveError} />}
 
         <div className="picker-group">
-          <span>Icon</span>
+          <div className="compact-label">
+            <span>Icon</span>
+            <small>{Object.keys(habitIcons).length} choices</small>
+          </div>
           <div className="icon-picker">
             {(Object.keys(habitIcons) as HabitIcon[]).map((iconKey) => {
               const Icon = habitIcons[iconKey]
@@ -834,7 +878,10 @@ function HabitSheet({
         </div>
 
         <div className="picker-group">
-          <span>Color</span>
+          <div className="compact-label">
+            <span>Color</span>
+            <small>{colorNames[input.color]}</small>
+          </div>
           <div className="color-picker">
             {(Object.keys(colorNames) as HabitColor[]).map((color) => (
               <button
@@ -848,69 +895,98 @@ function HabitSheet({
           </div>
         </div>
 
-        <div className="option-card">
-          <label className="switch-row">
-            <span>
-              <Bell size={19} />
-              Habit reminder
-            </span>
-            <input
-              type="checkbox"
-              checked={input.reminderEnabled}
-              onChange={(event) => setInput((current) => ({ ...current, reminderEnabled: event.target.checked }))}
-            />
-          </label>
-          {input.reminderEnabled && (
-            <label className="time-row">
+        <div className="cadence-card">
+          <div className="segmented-control" aria-label="Habit cadence">
+            <button
+              className={input.frequency === 'daily' ? 'active' : ''}
+              type="button"
+              onClick={() => setInput((current) => ({ ...current, frequency: 'daily' }))}
+            >
+              Daily
+            </button>
+            <button
+              className={input.frequency === 'weekly' ? 'active' : ''}
+              type="button"
+              onClick={() => setInput((current) => ({ ...current, frequency: 'weekly', weeklyTarget }))}
+            >
+              Weekly
+            </button>
+          </div>
+          {input.frequency === 'weekly' && (
+            <div className="target-stepper">
               <span>
-                <Clock3 size={19} />
-                Time
+                <CalendarDays size={16} />
+                Target
               </span>
-              <input
-                type="time"
-                step="900"
-                value={input.reminderTime}
-                onChange={(event) => setInput((current) => ({ ...current, reminderTime: event.target.value }))}
-              />
-            </label>
+              <button type="button" onClick={() => adjustWeeklyTarget(-1)} aria-label="Decrease weekly target">
+                -
+              </button>
+              <strong>{weeklyTarget}x</strong>
+              <button type="button" onClick={() => adjustWeeklyTarget(1)} aria-label="Increase weekly target">
+                +
+              </button>
+            </div>
           )}
-          <p className="helper-copy">Bujo will remind you for this habit when device reminders are enabled.</p>
         </div>
 
-        <div className="option-card">
-          <label className="switch-row">
-            <span>
-              <Timer size={19} />
-              Timer
-            </span>
-            <input
-              type="checkbox"
-              checked={input.timerEnabled}
-              onChange={(event) => setInput((current) => ({ ...current, timerEnabled: event.target.checked }))}
-            />
-          </label>
-          {input.timerEnabled && (
-            <label className="time-row">
+        <div className="sheet-option-grid">
+          <div className="option-card compact-option">
+            <label className="switch-row">
               <span>
-                <Clock3 size={19} />
-                Minutes
+                <Bell size={18} />
+                Reminder
               </span>
               <input
-                type="number"
-                min="1"
-                max="180"
-                step="1"
-                value={input.timerMinutes}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    timerMinutes: Math.min(180, Math.max(1, Number(event.target.value) || 1)),
-                  }))
-                }
+                type="checkbox"
+                checked={input.reminderEnabled}
+                onChange={(event) => setInput((current) => ({ ...current, reminderEnabled: event.target.checked }))}
               />
             </label>
-          )}
-          <p className="helper-copy">Timers are for habits you want to spend a set amount of time on.</p>
+            {input.reminderEnabled && (
+              <label className="compact-field">
+                <Clock3 size={16} />
+                <input
+                  type="time"
+                  step="900"
+                  value={input.reminderTime}
+                  onChange={(event) => setInput((current) => ({ ...current, reminderTime: event.target.value }))}
+                />
+              </label>
+            )}
+          </div>
+
+          <div className="option-card compact-option">
+            <label className="switch-row">
+              <span>
+                <Timer size={18} />
+                Timer
+              </span>
+              <input
+                type="checkbox"
+                checked={input.timerEnabled}
+                onChange={(event) => setInput((current) => ({ ...current, timerEnabled: event.target.checked }))}
+              />
+            </label>
+            {input.timerEnabled && (
+              <label className="compact-field">
+                <Clock3 size={16} />
+                <input
+                  type="number"
+                  min="1"
+                  max="180"
+                  step="1"
+                  value={input.timerMinutes}
+                  onChange={(event) =>
+                    setInput((current) => ({
+                      ...current,
+                      timerMinutes: Math.min(180, Math.max(1, Number(event.target.value) || 1)),
+                    }))
+                  }
+                />
+                <span>min</span>
+              </label>
+            )}
+          </div>
         </div>
 
         <button className="primary-action" type="submit" disabled={!canSave || saving}>
@@ -925,24 +1001,30 @@ function HabitSheet({
 function HabitRow({
   habit,
   completed,
+  onTrack,
   accessory,
+  accessoryIcon: AccessoryIcon,
   onClick,
   onStartTimer,
 }: {
   habit: Habit
   completed: boolean
+  onTrack: boolean
   accessory: string
+  accessoryIcon: LucideIcon
   onClick: () => void
   onStartTimer: () => void
 }) {
+  const rowClassName = ['habit-row', completed ? 'completed' : '', !completed && onTrack ? 'on-track' : ''].filter(Boolean).join(' ')
+
   return (
-    <div className={completed ? 'habit-row completed' : 'habit-row'}>
+    <div className={rowClassName}>
       <button className="habit-main-button" type="button" onClick={onClick}>
         <HabitIdentity habit={habit} />
       </button>
       <div className="row-badges">
         <span className="row-meta">
-          <Flame size={15} />
+          <AccessoryIcon size={15} />
           {accessory}
         </span>
         <HabitBadges habit={habit} showTimer={false} />
@@ -961,12 +1043,19 @@ function HabitRow({
 }
 
 function HabitBadges({ habit, accessory, showTimer = true }: { habit: Habit; accessory?: string; showTimer?: boolean }) {
-  if (!habit.reminderEnabled && !(showTimer && habit.timerEnabled) && !accessory) {
+  const weekly = isWeeklyHabit(habit)
+  if (!weekly && !habit.reminderEnabled && !(showTimer && habit.timerEnabled) && !accessory) {
     return null
   }
 
   return (
     <>
+      {weekly && (
+        <span className="row-meta">
+          <CalendarDays size={15} />
+          {getHabitCadenceLabel(habit)}
+        </span>
+      )}
       {habit.reminderEnabled && (
         <span className="row-meta">
           <Bell size={15} />
