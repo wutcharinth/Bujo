@@ -12,16 +12,20 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  CloudRain,
   Coffee,
   Droplets,
   Dumbbell,
   Flame,
   Footprints,
+  Frown,
   Heart,
   Home,
   Info,
+  Laugh,
   Leaf,
   LogOut,
+  Meh,
   Moon,
   Music,
   Pause,
@@ -33,6 +37,7 @@ import {
   Settings,
   ShowerHead,
   Smartphone,
+  Smile,
   Sparkles,
   Sun,
   Timer,
@@ -327,12 +332,12 @@ function MoodTracker({
   const morningMood = todaysMoods.find((m) => m.timeOfDay === 'morning')?.value
   const eveningMood = todaysMoods.find((m) => m.timeOfDay === 'evening')?.value
 
-  const moodOptions: Array<{ value: MoodValue; emoji: string; label: string }> = [
-    { value: 'terrible', emoji: '😫', label: 'Terrible' },
-    { value: 'bad', emoji: '🙁', label: 'Bad' },
-    { value: 'okay', emoji: '😐', label: 'Okay' },
-    { value: 'good', emoji: '🙂', label: 'Good' },
-    { value: 'great', emoji: '🤩', label: 'Great' },
+  const moodOptions: Array<{ value: MoodValue; icon: React.ReactNode; label: string }> = [
+    { value: 'terrible', icon: <CloudRain size={20} />, label: 'Terrible' },
+    { value: 'bad', icon: <Frown size={20} />, label: 'Bad' },
+    { value: 'okay', icon: <Meh size={20} />, label: 'Okay' },
+    { value: 'good', icon: <Smile size={20} />, label: 'Good' },
+    { value: 'great', icon: <Laugh size={20} />, label: 'Great' },
   ]
 
   return (
@@ -346,14 +351,14 @@ function MoodTracker({
           <span>Morning</span>
           <div className="mood-options">
             {moodOptions.map((opt) => (
-              <button
+                <button
                 key={`morning-${opt.value}`}
                 type="button"
                 className={`mood-btn ${morningMood === opt.value ? 'active' : ''}`}
                 onClick={() => onSetMood('morning', opt.value)}
                 aria-label={opt.label}
               >
-                {opt.emoji}
+                {opt.icon}
               </button>
             ))}
           </div>
@@ -369,7 +374,7 @@ function MoodTracker({
                 onClick={() => onSetMood('evening', opt.value)}
                 aria-label={opt.label}
               >
-                {opt.emoji}
+                {opt.icon}
               </button>
             ))}
           </div>
@@ -845,24 +850,6 @@ function ProgressView({
             <span className="contrib-cell level-4" />
             <span>More</span>
           </div>
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Weekday rhythm</h2>
-          <span>Last 4 weeks</span>
-        </div>
-        <div className="weekday-rhythm">
-          {weekdayStats.map(({ label, rate }) => (
-            <div className="weekday-row" key={label}>
-              <span>{label}</span>
-              <div>
-                <i style={{ width: `${rate}%` }} />
-              </div>
-              <strong>{rate}%</strong>
-            </div>
-          ))}
         </div>
       </div>
     </section>

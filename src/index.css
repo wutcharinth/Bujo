@@ -214,7 +214,7 @@ main {
 .metric-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .metric-strip .metric:nth-child(3) {
@@ -316,12 +316,12 @@ main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  min-height: 76px;
+  gap: 8px;
+  min-height: 64px;
   width: 100%;
-  padding: 12px;
+  padding: 10px 14px;
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 20px;
   background: var(--surface-strong);
   color: var(--text);
 }
@@ -575,9 +575,9 @@ main {
 
 .panel-section {
   display: grid;
-  gap: 15px;
-  padding: 18px;
-  border-radius: 26px;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 20px;
 }
 
 .section-heading {
@@ -600,7 +600,7 @@ main {
 
 .mood-tracker {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .mood-row {
@@ -623,13 +623,13 @@ main {
 .mood-btn {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: var(--surface);
-  font-size: 20px;
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
@@ -641,6 +641,7 @@ main {
 .mood-btn.active {
   background: var(--blue);
   border-color: var(--blue);
+  color: #fff;
   box-shadow: 0 4px 12px rgba(40, 120, 255, 0.3);
   transform: scale(1.1);
 }
