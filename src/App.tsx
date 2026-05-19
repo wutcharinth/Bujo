@@ -32,8 +32,8 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
-import { starterHabits, useBujoData } from './hooks/useBujoData'
-import { getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
+import { useBujoData } from './hooks/useBujoData'
+import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
@@ -196,7 +196,6 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 progress={progress}
                 streak={appStreaks.current}
                 onAddHabit={openCreateSheet}
-                onSeed={bujo.seedStarterHabits}
                 onToggle={bujo.toggleToday}
               />
             )}
@@ -284,7 +283,6 @@ function TodayView({
   progress,
   streak,
   onAddHabit,
-  onSeed,
   onToggle,
 }: {
   activeHabits: Habit[]
@@ -293,7 +291,6 @@ function TodayView({
   progress: number
   streak: number
   onAddHabit: () => void
-  onSeed: () => Promise<void>
   onToggle: (habitId: string, completed: boolean) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
@@ -378,7 +375,7 @@ function TodayView({
       )}
 
       {activeHabits.length === 0 ? (
-        <EmptyHabits onAddHabit={onAddHabit} onSeed={onSeed} />
+        <EmptyHabits onAddHabit={onAddHabit} />
       ) : (
         <div className="habit-list">
           {activeHabits.map((habit) => {
@@ -466,13 +463,19 @@ function ProgressView({
 }) {
   const weekKeys = getWeekDateKeys()
   const recentKeys = getRecentDateKeys(14)
+  const monthKeys = getRecentDateKeys(30)
+  const rhythmKeys = getRecentDateKeys(28)
   const currentSevenKeys = recentKeys.slice(7)
   const previousSevenKeys = recentKeys.slice(0, 7)
   const dateLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
   const activeHabitIds = new Set(activeHabits.map((habit) => habit.id))
   const activeCheckins = checkins.filter((checkin) => activeHabitIds.has(checkin.habitId))
-  const completedDates = new Set(activeCheckins.map((checkin) => checkin.date))
+  const doneIdsForDate = (dateKey: string) => new Set(activeCheckins.filter((checkin) => checkin.date === dateKey).map((checkin) => checkin.habitId))
   const countCompletions = (dateKeys: string[]) => activeCheckins.filter((checkin) => dateKeys.includes(checkin.date)).length
+  const dayRate = (dateKey: string) => {
+    if (!activeHabits.length) return 0
+    return Math.round((doneIdsForDate(dateKey).size / activeHabits.length) * 100)
+  }
   const possibleCurrent = activeHabits.length * currentSevenKeys.length
   const possiblePrevious = activeHabits.length * previousSevenKeys.length
   const currentCompletions = countCompletions(currentSevenKeys)
@@ -480,10 +483,36 @@ function ProgressView({
   const currentRate = possibleCurrent ? Math.round((currentCompletions / possibleCurrent) * 100) : 0
   const previousRate = possiblePrevious ? Math.round((previousCompletions / possiblePrevious) * 100) : 0
   const trend = currentRate - previousRate
+  const lastThreeKeys = recentKeys.slice(-3)
+  const previousThreeKeys = recentKeys.slice(-6, -3)
+  const lastThreePossible = activeHabits.length * lastThreeKeys.length
+  const previousThreePossible = activeHabits.length * previousThreeKeys.length
+  const lastThreeRate = lastThreePossible ? Math.round((countCompletions(lastThreeKeys) / lastThreePossible) * 100) : 0
+  const previousThreeRate = previousThreePossible ? Math.round((countCompletions(previousThreeKeys) / previousThreePossible) * 100) : 0
+  const shortTrend = lastThreeRate - previousThreeRate
   const perfectDays = currentSevenKeys.filter((dateKey) => {
-    const doneThatDay = new Set(activeCheckins.filter((checkin) => checkin.date === dateKey).map((checkin) => checkin.habitId))
+    const doneThatDay = doneIdsForDate(dateKey)
     return activeHabits.length > 0 && activeHabits.every((habit) => doneThatDay.has(habit.id))
   }).length
+  const monthStats = monthKeys.map((dateKey) => {
+    const done = doneIdsForDate(dateKey).size
+    const rate = activeHabits.length ? Math.round((done / activeHabits.length) * 100) : 0
+    const intensity = rate === 0 ? 0 : rate < 34 ? 1 : rate < 67 ? 2 : 3
+    return { dateKey, done, rate, intensity }
+  })
+  const bestDay = [...monthStats].sort((a, b) => b.rate - a.rate || b.done - a.done)[0]
+  const weekdayStats = dateLabels.map((label, index) => {
+    const matchingDays = rhythmKeys.filter((dateKey) => {
+      const mondayFirstIndex = (dateFromKey(dateKey).getDay() + 6) % 7
+      return mondayFirstIndex === index
+    })
+    const possible = matchingDays.length * activeHabits.length
+    const done = countCompletions(matchingDays)
+    const rate = possible ? Math.round((done / possible) * 100) : 0
+
+    return { label, rate }
+  })
+  const bestWeekday = [...weekdayStats].sort((a, b) => b.rate - a.rate)[0]
   const habitBreakdown = activeHabits
     .map((habit) => {
       const habitDates = activeCheckins.filter((checkin) => checkin.habitId === habit.id).map((checkin) => checkin.date)
@@ -496,6 +525,8 @@ function ProgressView({
     .sort((a, b) => b.rate - a.rate)
   const strongestHabit = habitBreakdown[0]
   const focusHabit = [...habitBreakdown].reverse().find((item) => item.rate < 80) ?? habitBreakdown[habitBreakdown.length - 1]
+  const dashboardMood =
+    currentRate >= 80 ? 'In flow' : currentRate >= 50 ? 'Building' : activeHabits.length ? 'Warming up' : 'Empty'
   const insight =
     activeHabits.length === 0
       ? 'Add a few habits to unlock trends.'
@@ -509,7 +540,7 @@ function ProgressView({
     <section className="screen-stack" aria-label="Progress">
       <div className="insight-hero">
         <div>
-          <p className="panel-kicker">7-day completion</p>
+          <p className="panel-kicker">Dashboard · {dashboardMood}</p>
           <h2>{currentRate}%</h2>
           <p>{insight}</p>
         </div>
@@ -520,6 +551,26 @@ function ProgressView({
         <Metric icon={Flame} label="Current streak" value={`${streaks.current}d`} />
         <Metric icon={BarChart3} label="Best streak" value={`${streaks.best}d`} />
         <Metric icon={Check} label="Perfect days" value={`${perfectDays}/7`} />
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Momentum</h2>
+          <span>{lastThreeRate}% last 3 days</span>
+        </div>
+        <div className="momentum-strip" aria-label="Last 14 days completion">
+          {recentKeys.map((dateKey) => {
+            const rate = dayRate(dateKey)
+            return (
+              <div className="momentum-day" key={dateKey}>
+                <span style={{ height: `${Math.max(8, rate)}%` }} />
+              </div>
+            )
+          })}
+        </div>
+        <p className="dashboard-note">
+          {shortTrend >= 0 ? '+' : ''}{shortTrend} points vs. the 3 days before.
+        </p>
       </div>
 
       <div className="panel-section">
@@ -541,6 +592,24 @@ function ProgressView({
               </div>
             )
           })}
+        </div>
+      </div>
+
+      <div className="coach-grid">
+        <div className="coach-card">
+          <span>Best day</span>
+          <strong>{bestDay?.rate ? bestDay.dateKey.slice(5).replace('-', '/') : 'None yet'}</strong>
+          <p>{bestDay?.rate ? `${bestDay.rate}% complete across active habits.` : 'Complete one habit to start the map.'}</p>
+        </div>
+        <div className="coach-card">
+          <span>Best rhythm</span>
+          <strong>{bestWeekday?.rate ? bestWeekday.label : 'None yet'}</strong>
+          <p>{bestWeekday?.rate ? `${bestWeekday.rate}% average over the last 4 weeks.` : 'Weekday patterns appear after check-ins.'}</p>
+        </div>
+        <div className="coach-card">
+          <span>Next move</span>
+          <strong>{focusHabit?.habit.name ?? 'Add habit'}</strong>
+          <p>{focusHabit ? 'Make this one the easiest check-in today.' : 'Create one habit you can finish in under two minutes.'}</p>
         </div>
       </div>
 
@@ -586,14 +655,31 @@ function ProgressView({
 
       <div className="panel-section">
         <div className="section-heading">
-          <h2>Last 14 days</h2>
-          <span>Daily touchpoints</span>
+          <h2>30-day map</h2>
+          <span>Completion density</span>
         </div>
-        <div className="dot-calendar">
-          {recentKeys.map((dateKey) => {
-            const hasCheckin = completedDates.has(dateKey)
-            return <span className={hasCheckin ? 'filled' : ''} key={dateKey} title={dateKey} />
-          })}
+        <div className="month-map">
+          {monthStats.map(({ dateKey, intensity, rate }) => (
+            <span className={`density-${intensity}`} key={dateKey} title={`${dateKey}: ${rate}%`} />
+          ))}
+        </div>
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Weekday rhythm</h2>
+          <span>Last 4 weeks</span>
+        </div>
+        <div className="weekday-rhythm">
+          {weekdayStats.map(({ label, rate }) => (
+            <div className="weekday-row" key={label}>
+              <span>{label}</span>
+              <div>
+                <i style={{ width: `${rate}%` }} />
+              </div>
+              <strong>{rate}%</strong>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -955,31 +1041,16 @@ function HabitIdentity({ habit }: { habit: Habit }) {
   )
 }
 
-function EmptyHabits({ onAddHabit, onSeed }: { onAddHabit: () => void; onSeed: () => Promise<void> }) {
+function EmptyHabits({ onAddHabit }: { onAddHabit: () => void }) {
   return (
     <div className="empty-panel">
       <Sparkles size={24} />
       <h2>Tiny habits, no drama.</h2>
-      <p>Start with a few gentle defaults or add your own.</p>
-      <div className="starter-grid">
-        {starterHabits.map((habit) => {
-          const Icon = habitIcons[habit.icon]
-          return (
-            <span className={`starter-chip ${habit.color}`} key={habit.name}>
-              <Icon size={17} />
-              {habit.name}
-            </span>
-          )
-        })}
-      </div>
+      <p>Create one habit you can finish today. Keep it small enough to feel almost too easy.</p>
       <div className="empty-actions">
-        <button className="primary-action" type="button" onClick={onSeed}>
-          <Sparkles size={19} />
-          <span>Use starters</span>
-        </button>
-        <button className="secondary-action" type="button" onClick={onAddHabit}>
+        <button className="primary-action" type="button" onClick={onAddHabit}>
           <Plus size={19} />
-          <span>Add my own</span>
+          <span>Add first habit</span>
         </button>
       </div>
     </div>

@@ -11,52 +11,12 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { getDateKey } from '../lib/dates'
 import { getPlatformHints } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
 import type { Checkin, Habit, NewHabitInput, NotificationPrefs } from '../types'
-
-export const starterHabits: NewHabitInput[] = [
-  {
-    name: 'Drink water',
-    icon: 'drop',
-    color: 'blue',
-    reminderEnabled: true,
-    reminderTime: '09:00',
-    timerEnabled: false,
-    timerMinutes: 5,
-  },
-  {
-    name: 'Read',
-    icon: 'book',
-    color: 'gold',
-    reminderEnabled: true,
-    reminderTime: '21:00',
-    timerEnabled: true,
-    timerMinutes: 20,
-  },
-  {
-    name: 'Move',
-    icon: 'steps',
-    color: 'green',
-    reminderEnabled: true,
-    reminderTime: '18:00',
-    timerEnabled: true,
-    timerMinutes: 10,
-  },
-  {
-    name: 'Sleep early',
-    icon: 'moon',
-    color: 'violet',
-    reminderEnabled: true,
-    reminderTime: '22:30',
-    timerEnabled: false,
-    timerMinutes: 5,
-  },
-]
 
 const defaultPrefs = (): NotificationPrefs => ({
   enabled: false,
@@ -254,25 +214,6 @@ export function useBujoData(user: User | null) {
     [user],
   )
 
-  const seedStarterHabits = useCallback(async () => {
-    if (!user || !db) return
-
-    const batch = writeBatch(db)
-    const habitCollection = collection(db, userPath(user.uid), 'habits')
-
-    for (const starter of starterHabits) {
-      const habitRef = doc(habitCollection)
-      batch.set(habitRef, {
-        ...toHabitWrite(starter),
-        active: true,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      })
-    }
-
-    await batch.commit()
-  }, [user])
-
   const saveNotificationPrefs = useCallback(
     async (updates: Partial<NotificationPrefs>) => {
       if (!user || !db) return
@@ -319,7 +260,6 @@ export function useBujoData(user: User | null) {
     updateHabit,
     archiveHabit,
     toggleToday,
-    seedStarterHabits,
     saveNotificationPrefs,
     saveFcmToken,
   }

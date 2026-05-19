@@ -531,27 +531,8 @@ main {
   color: var(--blue);
 }
 
-.starter-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.starter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-}
-
 .empty-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 10px;
   width: 100%;
 }
@@ -617,20 +598,133 @@ main {
   font-weight: 700;
 }
 
-.dot-calendar {
+.momentum-strip {
   display: grid;
-  grid-template-columns: repeat(14, 1fr);
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 7px;
+  align-items: end;
+  min-height: 76px;
+  padding: 10px;
+  border-radius: 22px;
+  background: var(--surface-muted);
+}
+
+.momentum-day {
+  display: flex;
+  align-items: end;
+  min-height: 58px;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.13);
+  overflow: hidden;
+}
+
+.momentum-day span {
+  display: block;
+  width: 100%;
+  min-height: 8px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--gold), var(--blue));
+}
+
+.dashboard-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 660;
+}
+
+.coach-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coach-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 136px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface-muted);
+}
+
+.coach-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.coach-card strong {
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.08;
+}
+
+.coach-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 560;
+}
+
+.month-map {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
   gap: 7px;
 }
 
-.dot-calendar span {
+.month-map span {
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: 8px;
   background: rgba(120, 120, 128, 0.17);
 }
 
-.dot-calendar .filled {
+.month-map .density-1 {
+  background: rgba(52, 199, 89, 0.34);
+}
+
+.month-map .density-2 {
+  background: rgba(52, 199, 89, 0.62);
+}
+
+.month-map .density-3 {
   background: var(--green);
+}
+
+.weekday-rhythm {
+  display: grid;
+  gap: 10px;
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 42px;
+  gap: 10px;
+  align-items: center;
+}
+
+.weekday-row > span,
+.weekday-row strong {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.weekday-row div {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.15);
+}
+
+.weekday-row i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), var(--green));
 }
 
 .habit-health-list {
@@ -1148,6 +1242,12 @@ main {
   }
 }
 
+@media (max-width: 520px) {
+  .coach-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 380px) {
   .app-shell {
     padding-right: 12px;
@@ -1181,6 +1281,7 @@ main {
     width: 100%;
   }
 
+  .coach-grid,
   .insight-grid,
   .insight-pair {
     grid-template-columns: 1fr;
