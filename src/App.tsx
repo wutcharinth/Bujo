@@ -23,8 +23,10 @@ import {
   Leaf,
   LogOut,
   Moon,
+  Music,
   Pause,
   Pencil,
+  Pill,
   Play,
   Plus,
   RotateCcw,
@@ -40,7 +42,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
-import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
+import { addDaysToKey, dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
 import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget, WEEKDAY_SHORT } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
@@ -60,7 +62,9 @@ const habitIcons: Record<HabitIcon, LucideIcon> = {
   laundry: WashingMachine,
   leaf: Leaf,
   moon: Moon,
+  music: Music,
   pencil: Pencil,
+  pill: Pill,
   shower: ShowerHead,
   sparkles: Sparkles,
   steps: Footprints,
@@ -78,6 +82,8 @@ const colorNames: Record<HabitColor, string> = {
   teal: 'Teal',
   pink: 'Pink',
   indigo: 'Indigo',
+  amber: 'Amber',
+  mint: 'Mint',
 }
 
 const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
@@ -501,7 +507,6 @@ function ProgressView({
 }) {
   const weekKeys = getWeekDateKeys()
   const recentKeys = getRecentDateKeys(14)
-  const monthKeys = getRecentDateKeys(30)
   const rhythmKeys = getRecentDateKeys(28)
   const currentSevenKeys = recentKeys.slice(7)
   const previousSevenKeys = recentKeys.slice(0, 7)
@@ -527,13 +532,50 @@ function ProgressView({
     const doneThatDay = doneIdsForDate(dateKey)
     return activeHabits.length > 0 && activeHabits.every((habit) => doneThatDay.has(habit.id))
   }).length
-  const monthStats = monthKeys.map((dateKey) => {
-    const done = doneIdsForDate(dateKey).size
-    const rate = activeHabits.length ? Math.round((done / activeHabits.length) * 100) : 0
-    const intensity = rate === 0 ? 0 : rate < 34 ? 1 : rate < 67 ? 2 : 3
-    return { dateKey, done, rate, intensity }
-  })
-  const bestDay = [...monthStats].sort((a, b) => b.rate - a.rate || b.done - a.done)[0]
+
+  // GitHub-style contribution graph: 16 weeks, arranged by weekday rows × week columns
+  const GRAPH_WEEKS = 16
+  const graphDays = useMemo(() => {
+    // Find this week's Monday then go back (GRAPH_WEEKS - 1) more weeks
+    const todayDate = new Date()
+    const dayOfWeek = (todayDate.getDay() + 6) % 7 // 0=Mon
+    const thisMonday = new Date(todayDate)
+    thisMonday.setDate(todayDate.getDate() - dayOfWeek)
+    const startDate = new Date(thisMonday)
+    startDate.setDate(thisMonday.getDate() - (GRAPH_WEEKS - 1) * 7)
+    const startKey = getDateKey(startDate)
+    return Array.from({ length: GRAPH_WEEKS * 7 }, (_, i) => addDaysToKey(startKey, i))
+  }, [])
+  const graphGrid = useMemo(() => {
+    const weeks: Array<Array<{ dateKey: string; intensity: number; rate: number }>> = []
+    for (let w = 0; w < GRAPH_WEEKS; w++) {
+      const week: Array<{ dateKey: string; intensity: number; rate: number }> = []
+      for (let d = 0; d < 7; d++) {
+        const dateKey = graphDays[w * 7 + d]
+        const done = doneIdsForDate(dateKey).size
+        const rate = activeHabits.length ? Math.round((done / activeHabits.length) * 100) : 0
+        const intensity = rate === 0 ? 0 : rate < 25 ? 1 : rate < 50 ? 2 : rate < 75 ? 3 : 4
+        week.push({ dateKey, intensity, rate })
+      }
+      weeks.push(week)
+    }
+    return weeks
+  }, [graphDays, activeCheckins, activeHabits])
+  const graphMonthLabels = useMemo(() => {
+    const labels: Array<{ label: string; col: number }> = []
+    let lastMonth = ''
+    for (let w = 0; w < graphGrid.length; w++) {
+      const d = dateFromKey(graphGrid[w][0].dateKey)
+      const month = d.toLocaleString('en', { month: 'short' })
+      if (month !== lastMonth) {
+        labels.push({ label: month, col: w + 2 })
+        lastMonth = month
+      }
+    }
+    return labels
+  }, [graphGrid])
+  const allGraphCells = graphGrid.flat()
+  const bestDay = [...allGraphCells].sort((a, b) => b.rate - a.rate)[0]
   const weekdayStats = dateLabels.map((label, index) => {
     const matchingDays = rhythmKeys.filter((dateKey) => {
       const mondayFirstIndex = (dateFromKey(dateKey).getDay() + 6) % 7
@@ -691,13 +733,44 @@ function ProgressView({
 
       <div className="panel-section">
         <div className="section-heading">
-          <h2>30-day map</h2>
-          <span>Completion density</span>
+          <h2>Activity</h2>
+          <span>Last {GRAPH_WEEKS} weeks</span>
         </div>
-        <div className="month-map">
-          {monthStats.map(({ dateKey, intensity, rate }) => (
-            <span className={`density-${intensity}`} key={dateKey} title={`${dateKey}: ${rate}%`} />
-          ))}
+        <div className="contrib-graph">
+          <div className="contrib-months" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 1fr)` }}>
+            <span />
+            {graphMonthLabels.map(({ label, col }) => (
+              <span key={`${label}-${col}`} style={{ gridColumn: col }}>{label}</span>
+            ))}
+          </div>
+          <div className="contrib-grid" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 1fr)` }}>
+            {[0, 1, 2, 3, 4, 5, 6].map((row) => (
+              <>
+                <span className="contrib-day-label" key={`label-${row}`}>
+                  {row % 2 === 0 ? dateLabels[row] : ''}
+                </span>
+                {graphGrid.map((week) => {
+                  const cell = week[row]
+                  return (
+                    <span
+                      className={`contrib-cell level-${cell.intensity}`}
+                      key={cell.dateKey}
+                      title={`${cell.dateKey}: ${cell.rate}%`}
+                    />
+                  )
+                })}
+              </>
+            ))}
+          </div>
+          <div className="contrib-legend">
+            <span>Less</span>
+            <span className="contrib-cell level-0" />
+            <span className="contrib-cell level-1" />
+            <span className="contrib-cell level-2" />
+            <span className="contrib-cell level-3" />
+            <span className="contrib-cell level-4" />
+            <span>More</span>
+          </div>
         </div>
       </div>
 
