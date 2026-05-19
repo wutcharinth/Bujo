@@ -1000,6 +1000,81 @@ main {
   text-transform: uppercase;
 }
 
+/* --- Habit Matrix --- */
+.habit-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.matrix-header {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) repeat(7, minmax(28px, 40px));
+  gap: 4px;
+  align-items: center;
+}
+
+.matrix-day-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.matrix-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) repeat(7, minmax(28px, 40px));
+  gap: 4px;
+  align-items: center;
+  min-height: 40px;
+}
+
+.matrix-label {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding-right: 8px;
+}
+
+.matrix-label .habit-identity {
+  gap: 6px;
+}
+
+.matrix-label .habit-glyph {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+.matrix-label .habit-glyph svg {
+  width: 12px;
+  height: 12px;
+}
+
+.matrix-label strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.matrix-cell {
+  display: grid;
+  place-items: center;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  transition: all 0.2s ease;
+}
+
+.matrix-cell.done {
+  color: #fff;
+  border-color: transparent;
+}
+
 .mini-insight strong {
   color: var(--text);
   font-size: 20px;

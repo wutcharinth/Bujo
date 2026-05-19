@@ -974,6 +974,39 @@ function ProgressView({
         </div>
       </div>
 
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>7-Day Matrix</h2>
+          <span>All habits</span>
+        </div>
+        <div className="habit-matrix">
+          <div className="matrix-header">
+            <div className="matrix-label"></div>
+            {currentSevenKeys.map((dateKey, index) => (
+              <div key={dateKey} className="matrix-day-label">{dateLabels[index]}</div>
+            ))}
+          </div>
+          {activeHabits.map((habit) => (
+            <div className="matrix-row" key={habit.id}>
+              <div className="matrix-label">
+                <HabitIdentity habit={habit} />
+              </div>
+              {currentSevenKeys.map((dateKey) => {
+                const isDone = doneIdsForDate(dateKey).has(habit.id)
+                return (
+                  <div key={`${habit.id}-${dateKey}`} className={`matrix-cell ${isDone ? `done ${habit.color}` : ''}`}>
+                    {isDone && <Check size={14} strokeWidth={3} />}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+          {activeHabits.length === 0 && (
+            <p className="helper-copy" style={{ padding: '8px 0' }}>Add a habit to see your 7-day matrix.</p>
+          )}
+        </div>
+      </div>
+
       <div className="coach-grid">
         <div className="coach-card">
           <span>Best day</span>
