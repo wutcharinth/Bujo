@@ -52,6 +52,9 @@ export interface NotificationPrefs {
   reminderTime: string
   timezone: string
   lastSentDate?: string
+  sound?: string
+  theme?: 'system' | 'light' | 'dark'
+  themeColor?: string
 }
 
 export type MoodValue = 'terrible' | 'bad' | 'okay' | 'good' | 'great'

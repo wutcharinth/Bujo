@@ -54,7 +54,7 @@ import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeekl
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, TimeOfDay, WeekDay } from './types'
+import type { Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'settings'
 
@@ -167,6 +167,18 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   const bujo = useBujoData(authState.user)
   const todayKey = getDateKey()
   const currentWeekKeys = useMemo(() => getWeekDateKeys(), [])
+
+  useEffect(() => {
+    const theme = bujo.prefs.theme || 'system'
+    const color = bujo.prefs.themeColor || '#2878ff'
+
+    if (theme !== 'system') {
+      document.documentElement.setAttribute('data-theme', theme)
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+    }
+    document.documentElement.style.setProperty('--theme-color', color)
+  }, [bujo.prefs.theme, bujo.prefs.themeColor])
 
   const completedToday = useMemo(
     () => new Set(bujo.checkins.filter((checkin) => checkin.date === todayKey).map((checkin) => checkin.habitId)),
@@ -287,6 +299,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                   await bujo.saveNotificationPrefs({ enabled: false })
                   setNotice('Device reminders are off. Habit reminder times are still saved.')
                 }}
+                onSavePrefs={bujo.saveNotificationPrefs}
                 onSignOut={authState.signOut}
               />
             )}
@@ -355,7 +368,7 @@ function MoodTracker({
       </div>
       <div className="mood-tracker">
         <div className="mood-row">
-          <span>Morning</span>
+          <span>Sleep Quality</span>
           <div className="mood-options">
             {moodOptions.map((opt) => (
                 <button
@@ -371,7 +384,7 @@ function MoodTracker({
           </div>
         </div>
         <div className="mood-row">
-          <span>Evening</span>
+          <span>Day Feeling</span>
           <div className="mood-options">
             {moodOptions.map((opt) => (
               <button
@@ -626,7 +639,7 @@ function DaySummarySheet({
             </div>
             <div className="mood-tracker" style={{ gap: '12px' }}>
               <div className="mood-row">
-                <span>Morning</span>
+                <span>Sleep Quality</span>
                 {morningMood ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
                     {moodOptions[morningMood].icon} <strong>{moodOptions[morningMood].label}</strong>
@@ -636,7 +649,7 @@ function DaySummarySheet({
                 )}
               </div>
               <div className="mood-row">
-                <span>Evening</span>
+                <span>Day Feeling</span>
                 {eveningMood ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
                     {moodOptions[eveningMood].icon} <strong>{moodOptions[eveningMood].label}</strong>
@@ -977,14 +990,16 @@ function SettingsView({
   prefs,
   onEnableReminders,
   onDisableReminders,
+  onSavePrefs,
   onSignOut,
 }: {
   photoURL?: string | null
   displayName?: string | null
   email?: string | null
-  prefs: { enabled: boolean; timezone: string }
+  prefs: { enabled: boolean; timezone: string; sound?: string; theme?: string; themeColor?: string }
   onEnableReminders: () => Promise<void>
   onDisableReminders: () => Promise<void>
+  onSavePrefs: (updates: Partial<NotificationPrefs>) => Promise<void>
   onSignOut: () => Promise<void>
 }) {
   const [saving, setSaving] = useState(false)
@@ -1031,6 +1046,72 @@ function SettingsView({
         <div className="settings-note">
           <Smartphone size={20} />
           <p>For iPhone notifications, open Bujo from the Home Screen on iOS 16.4 or later after enabling device reminders.</p>
+        </div>
+      </div>
+
+      {prefs.enabled && (
+        <div className="panel-section">
+          <div className="section-heading">
+            <h2>Notification Sound</h2>
+          </div>
+          <select
+            className="sound-select"
+            value={prefs.sound || 'default'}
+            onChange={(e) => run(() => onSavePrefs({ sound: e.target.value }))}
+            disabled={saving}
+          >
+            <option value="default">Default</option>
+            <option value="chime.aiff">Chime</option>
+            <option value="bell.aiff">Bell</option>
+            <option value="birds.aiff">Birds</option>
+          </select>
+        </div>
+      )}
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Appearance</h2>
+        </div>
+        <div className="picker-group">
+          <div className="compact-label">
+            <span>Theme</span>
+          </div>
+          <select
+            className="sound-select"
+            value={prefs.theme || 'system'}
+            onChange={(e) => run(() => onSavePrefs({ theme: e.target.value as any }))}
+            disabled={saving}
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+
+          <div className="compact-label" style={{ marginTop: '8px' }}>
+            <span>Primary Color</span>
+          </div>
+          <div className="icon-picker">
+            {[
+              { label: 'Blue', value: '#2878ff' },
+              { label: 'Green', value: '#2aa86b' },
+              { label: 'Violet', value: '#8d6dff' },
+              { label: 'Coral', value: '#ff6f61' },
+              { label: 'Gold', value: '#d69d16' },
+              { label: 'Teal', value: '#12a7a1' },
+              { label: 'Pink', value: '#ef5da8' },
+            ].map((colorOpt) => (
+              <button
+                key={colorOpt.value}
+                className="icon-picker-btn"
+                type="button"
+                onClick={() => run(() => onSavePrefs({ themeColor: colorOpt.value }))}
+                style={{ background: colorOpt.value, color: '#fff', borderColor: prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff') ? 'var(--text)' : 'transparent' }}
+                aria-label={colorOpt.label}
+              >
+                {(prefs.themeColor === colorOpt.value || (!prefs.themeColor && colorOpt.value === '#2878ff')) && <Check size={16} />}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1298,19 +1379,21 @@ function HabitRow({
       <button className="habit-main-button" type="button" onClick={onClick}>
         <HabitIdentity habit={habit} />
       </button>
-      <div className="row-badges">
-        <span className="row-meta">
-          <AccessoryIcon size={15} />
-          {accessory}
-        </span>
-        <HabitBadges habit={habit} showTimer={false} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div className="row-badges">
+          <span className="row-meta">
+            <AccessoryIcon size={15} />
+            {accessory}
+          </span>
+          <HabitBadges habit={habit} showTimer={false} />
+        </div>
+        {habit.timerEnabled && (
+          <button className="timer-pill" type="button" onClick={onStartTimer} aria-label={`Start ${habit.timerMinutes} minute timer for ${habit.name}`}>
+            <Timer size={15} />
+            {habit.timerMinutes}m
+          </button>
+        )}
       </div>
-      {habit.timerEnabled && (
-        <button className="timer-pill" type="button" onClick={onStartTimer} aria-label={`Start ${habit.timerMinutes} minute timer for ${habit.name}`}>
-          <Timer size={15} />
-          {habit.timerMinutes}m
-        </button>
-      )}
       <button className="check-control" type="button" onClick={onClick} aria-label={completed ? `Undo ${habit.name}` : `Complete ${habit.name}`}>
         {completed && <Check size={19} />}
       </button>
