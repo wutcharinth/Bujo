@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek } from 'date-fns'
 import type { LucideIcon } from 'lucide-react'
 import {
   Archive,
@@ -10,6 +11,7 @@ import {
   Brain,
   CalendarDays,
   Check,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   CloudRain,
@@ -47,7 +49,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
-import { addDaysToKey, dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
+import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
 import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget, WEEKDAY_SHORT } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
 import { getNotificationHelpText, requestPushToken } from './lib/notifications'
@@ -252,7 +254,12 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
               />
             )}
             {activeTab === 'progress' && (
-              <ProgressView activeHabits={bujo.activeHabits} checkins={bujo.checkins} streaks={appStreaks} />
+              <ProgressView
+                activeHabits={bujo.activeHabits}
+                checkins={bujo.checkins}
+                moods={bujo.moods}
+                streaks={appStreaks}
+              />
             )}
             {activeTab === 'settings' && (
               <SettingsView
@@ -325,7 +332,7 @@ function MoodTracker({
   onSetMood,
 }: {
   moods: MoodCheckin[]
-  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue) => void
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => void
 }) {
   const todayKey = getDateKey()
   const todaysMoods = moods.filter((m) => m.date === todayKey)
@@ -355,7 +362,7 @@ function MoodTracker({
                 key={`morning-${opt.value}`}
                 type="button"
                 className={`mood-btn ${morningMood === opt.value ? 'active' : ''}`}
-                onClick={() => onSetMood('morning', opt.value)}
+                onClick={() => onSetMood('morning', morningMood === opt.value ? null : opt.value)}
                 aria-label={opt.label}
               >
                 {opt.icon}
@@ -371,7 +378,7 @@ function MoodTracker({
                 key={`evening-${opt.value}`}
                 type="button"
                 className={`mood-btn ${eveningMood === opt.value ? 'active' : ''}`}
-                onClick={() => onSetMood('evening', opt.value)}
+                onClick={() => onSetMood('evening', eveningMood === opt.value ? null : opt.value)}
                 aria-label={opt.label}
               >
                 {opt.icon}
@@ -405,7 +412,7 @@ function TodayView({
   onTrackCount: number
   onAddHabit: () => void
   onToggle: (habitId: string, completed: boolean) => Promise<void>
-  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue) => Promise<void>
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const completedCount = completedToday.size
@@ -573,13 +580,193 @@ function HabitsView({
   )
 }
 
+function DaySummarySheet({
+  dateKey,
+  activeHabits,
+  checkins,
+  moods,
+  onClose,
+}: {
+  dateKey: string
+  activeHabits: Habit[]
+  checkins: Array<{ habitId: string; date: string }>
+  moods: MoodCheckin[]
+  onClose: () => void
+}) {
+  const todaysMoods = moods.filter((m) => m.date === dateKey)
+  const morningMood = todaysMoods.find((m) => m.timeOfDay === 'morning')?.value
+  const eveningMood = todaysMoods.find((m) => m.timeOfDay === 'evening')?.value
+
+  const completedIds = new Set(checkins.filter((c) => c.date === dateKey).map((c) => c.habitId))
+  const completed = activeHabits.filter((h) => completedIds.has(h.id))
+  const pending = activeHabits.filter((h) => !completedIds.has(h.id))
+
+  const moodOptions: Record<MoodValue, { icon: React.ReactNode; label: string }> = {
+    terrible: { icon: <CloudRain size={16} />, label: 'Terrible' },
+    bad: { icon: <Frown size={16} />, label: 'Bad' },
+    okay: { icon: <Meh size={16} />, label: 'Okay' },
+    good: { icon: <Smile size={16} />, label: 'Good' },
+    great: { icon: <Laugh size={16} />, label: 'Great' },
+  }
+
+  return (
+    <div className="sheet-backdrop">
+      <div className="sheet">
+        <div className="sheet-handle" />
+        <header className="sheet-header">
+          <h2>{format(dateFromKey(dateKey), 'MMMM d, yyyy')}</h2>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Close">
+            <X size={20} />
+          </button>
+        </header>
+        <div className="sheet-content">
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Mood</h2>
+            </div>
+            <div className="mood-tracker" style={{ gap: '12px' }}>
+              <div className="mood-row">
+                <span>Morning</span>
+                {morningMood ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
+                    {moodOptions[morningMood].icon} <strong>{moodOptions[morningMood].label}</strong>
+                  </div>
+                ) : (
+                  <span>No check-in</span>
+                )}
+              </div>
+              <div className="mood-row">
+                <span>Evening</span>
+                {eveningMood ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
+                    {moodOptions[eveningMood].icon} <strong>{moodOptions[eveningMood].label}</strong>
+                  </div>
+                ) : (
+                  <span>No check-in</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Habits</h2>
+              <span>{completed.length}/{activeHabits.length}</span>
+            </div>
+            <div className="habit-list">
+              {completed.map((h) => (
+                <div key={h.id} className="habit-row" style={{ minHeight: 'auto', padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ color: 'var(--blue)' }}><Check size={16} /></div>
+                    <strong>{h.name}</strong>
+                  </div>
+                </div>
+              ))}
+              {pending.map((h) => (
+                <div key={h.id} className="habit-row" style={{ minHeight: 'auto', padding: '10px 14px', opacity: 0.6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--muted)' }} />
+                    <span>{h.name}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ActivityCalendar({
+  activeHabits,
+  checkins,
+  moods,
+  doneIdsForDate,
+}: {
+  activeHabits: Habit[]
+  checkins: Array<{ habitId: string; date: string }>
+  moods: MoodCheckin[]
+  doneIdsForDate: (dateKey: string) => Set<string>
+}) {
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
+  const start = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 })
+  const end = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 })
+  const allDays = eachDayOfInterval({ start, end })
+
+  const dayRate = (dateKey: string) => {
+    if (!activeHabits.length) return 0
+    return Math.round((doneIdsForDate(dateKey).size / activeHabits.length) * 100)
+  }
+
+  return (
+    <div className="panel-section">
+      <div className="section-heading">
+        <h2>Activity</h2>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button type="button" className="icon-button quiet" onClick={() => setCurrentMonth(addMonths(currentMonth, -1))}>
+            <ChevronLeft size={18} />
+          </button>
+          <span style={{ minWidth: '90px', textAlign: 'center' }}>{format(currentMonth, 'MMM yyyy')}</span>
+          <button type="button" className="icon-button quiet" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+      
+      <div className="activity-calendar">
+        <div className="calendar-weekdays">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+            <span key={i}>{d}</span>
+          ))}
+        </div>
+        <div className="calendar-grid">
+          {allDays.map((date) => {
+            const key = getDateKey(date)
+            const isCurrentMonth = isSameMonth(date, currentMonth)
+            const isTodayDate = isToday(date)
+            const progress = dayRate(key)
+            
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`calendar-day ${isCurrentMonth ? '' : 'outside'} ${isTodayDate ? 'today' : ''} ${selectedDate === key ? 'selected' : ''}`}
+                onClick={() => setSelectedDate(key)}
+                aria-label={`View ${key}`}
+              >
+                <div className="mini-ring" style={{ '--progress': `${progress}%` } as CSSProperties}>
+                  <span>{format(date, 'd')}</span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {selectedDate && (
+        <DaySummarySheet
+          dateKey={selectedDate}
+          activeHabits={activeHabits}
+          checkins={checkins}
+          moods={moods}
+          onClose={() => setSelectedDate(null)}
+        />
+      )}
+    </div>
+  )
+}
+
 function ProgressView({
   activeHabits,
   checkins,
+  moods,
   streaks,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
+  moods: MoodCheckin[]
   streaks: { current: number; best: number; total: number }
 }) {
   const weekKeys = getWeekDateKeys()
@@ -605,57 +792,22 @@ function ProgressView({
   const lastThreeRate = getWindowGoalStats(activeHabits, activeCheckins, lastThreeKeys).rate
   const previousThreeRate = getWindowGoalStats(activeHabits, activeCheckins, previousThreeKeys).rate
   const shortTrend = lastThreeRate - previousThreeRate
-  const perfectDays = currentSevenKeys.filter((dateKey) => {
+const perfectDays = currentSevenKeys.filter((dateKey) => {
     const doneThatDay = doneIdsForDate(dateKey)
     return activeHabits.length > 0 && activeHabits.every((habit) => doneThatDay.has(habit.id))
   }).length
 
-  // GitHub-style contribution graph: 16 weeks, arranged by weekday rows × week columns
-  const GRAPH_WEEKS = 16
-  const graphDays = useMemo(() => {
-    // Find this week's Monday then go back (GRAPH_WEEKS - 1) more weeks
-    const todayDate = new Date()
-    const dayOfWeek = (todayDate.getDay() + 6) % 7 // 0=Mon
-    const thisMonday = new Date(todayDate)
-    thisMonday.setDate(todayDate.getDate() - dayOfWeek)
-    const startDate = new Date(thisMonday)
-    startDate.setDate(thisMonday.getDate() - (GRAPH_WEEKS - 1) * 7)
-    const startKey = getDateKey(startDate)
-    return Array.from({ length: GRAPH_WEEKS * 7 }, (_, i) => addDaysToKey(startKey, i))
-  }, [])
-  const graphGrid = useMemo(() => {
-    const weeks: Array<Array<{ dateKey: string; intensity: number; rate: number }>> = []
-    for (let w = 0; w < GRAPH_WEEKS; w++) {
-      const week: Array<{ dateKey: string; intensity: number; rate: number }> = []
-      for (let d = 0; d < 7; d++) {
-        const dateKey = graphDays[w * 7 + d]
-        const done = doneIdsForDate(dateKey).size
-        const rate = activeHabits.length ? Math.round((done / activeHabits.length) * 100) : 0
-        const intensity = rate === 0 ? 0 : rate < 25 ? 1 : rate < 50 ? 2 : rate < 75 ? 3 : 4
-        week.push({ dateKey, intensity, rate })
-      }
-      weeks.push(week)
-    }
-    return weeks
-  }, [graphDays, activeCheckins, activeHabits])
-  const graphMonthLabels = useMemo(() => {
-    const labels: Array<{ label: string; col: number }> = []
-    let lastMonth = ''
-    for (let w = 0; w < graphGrid.length; w++) {
-      const d = dateFromKey(graphGrid[w][0].dateKey)
-      const month = d.toLocaleString('en', { month: 'short' })
-      if (month !== lastMonth) {
-        labels.push({ label: month, col: w + 2 })
-        lastMonth = month
-      }
-    }
-    return labels
-  }, [graphGrid])
-  const allGraphCells = graphGrid.flat()
-  const bestDay = [...allGraphCells].sort((a, b) => b.rate - a.rate)[0]
-  const weekdayStats = dateLabels.map((label, index) => {
+  const bestDay = recentKeys
+    .map((dateKey) => ({ dateKey, rate: dayRate(dateKey) }))
+    .sort((a, b) => b.rate - a.rate)[0]
+
+  const weekdayStats = [0, 1, 2, 3, 4, 5, 6].map((index) => {
+    const label = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]
     const matchingDays = rhythmKeys.filter((dateKey) => {
-      const mondayFirstIndex = (dateFromKey(dateKey).getDay() + 6) % 7
+      const date = new Date(dateKey)
+      const day = date.getDay()
+      const mondayFirstIndex = day === 0 ? 6 : day - 1
+
       return mondayFirstIndex === index
     })
     const rate = getWindowGoalStats(activeHabits, activeCheckins, matchingDays).rate
@@ -808,50 +960,12 @@ function ProgressView({
         </div>
       )}
 
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Activity</h2>
-          <span>Last {GRAPH_WEEKS} weeks</span>
-        </div>
-        <div className="contrib-graph">
-          <div className="contrib-scroll">
-            <div className="contrib-months" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 14px)` }}>
-              <span />
-              {graphMonthLabels.map(({ label, col }) => (
-                <span key={`${label}-${col}`} style={{ gridColumn: col }}>{label}</span>
-              ))}
-            </div>
-            <div className="contrib-grid" style={{ gridTemplateColumns: `28px repeat(${GRAPH_WEEKS}, 14px)` }}>
-              {[0, 1, 2, 3, 4, 5, 6].map((row) => (
-                <>
-                  <span className="contrib-day-label" key={`label-${row}`}>
-                    {row % 2 === 0 ? dateLabels[row] : ''}
-                  </span>
-                  {graphGrid.map((week) => {
-                    const cell = week[row]
-                    return (
-                      <span
-                        className={`contrib-cell level-${cell.intensity}`}
-                        key={cell.dateKey}
-                        title={`${cell.dateKey}: ${cell.rate}%`}
-                      />
-                    )
-                  })}
-                </>
-              ))}
-            </div>
-          </div>
-          <div className="contrib-legend">
-            <span>Less</span>
-            <span className="contrib-cell level-0" />
-            <span className="contrib-cell level-1" />
-            <span className="contrib-cell level-2" />
-            <span className="contrib-cell level-3" />
-            <span className="contrib-cell level-4" />
-            <span>More</span>
-          </div>
-        </div>
-      </div>
+      <ActivityCalendar
+        activeHabits={activeHabits}
+        checkins={checkins}
+        moods={moods}
+        doneIdsForDate={doneIdsForDate}
+      />
     </section>
   )
 }

@@ -250,12 +250,17 @@ export function useBujoData(user: User | null) {
   )
 
   const setMood = useCallback(
-    async (timeOfDay: TimeOfDay, value: MoodValue) => {
+    async (timeOfDay: TimeOfDay, value: MoodValue | null) => {
       if (!user || !db) return
 
       const date = getDateKey()
       const moodId = `${date}_${timeOfDay}`
       const moodRef = doc(db, userPath(user.uid), 'moods', moodId)
+
+      if (value === null) {
+        await deleteDoc(moodRef)
+        return
+      }
 
       await setDoc(moodRef, {
         date,

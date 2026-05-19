@@ -205,6 +205,25 @@ main {
   font-weight: 800;
 }
 
+.mini-ring {
+  --progress: 0%;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--surface) 56%, transparent 57%),
+    conic-gradient(var(--blue) var(--progress), rgba(40, 120, 255, 0.13) 0);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mini-ring span {
+  margin-top: 1px;
+}
+
 .progress-ring small {
   margin-top: -27px;
   color: var(--muted);
@@ -755,84 +774,52 @@ main {
   font-weight: 560;
 }
 
-/* GitHub-style contribution graph */
-.contrib-graph {
+.activity-calendar {
   display: grid;
-  gap: 6px;
-  padding: 6px 0;
+  gap: 12px;
 }
 
-.contrib-scroll {
-  overflow-x: auto;
-  margin-right: -18px;
-  padding-right: 18px;
-  padding-bottom: 4px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.contrib-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.contrib-months {
+.calendar-weekdays {
   display: grid;
-  gap: 3px;
-  font-size: 11px;
-  font-weight: 680;
-  color: var(--muted);
-}
-
-.contrib-grid {
-  display: grid;
-  gap: 3px;
-}
-
-.contrib-day-label {
-  display: grid;
-  align-items: center;
-  font-size: 11px;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 13px;
   font-weight: 700;
   color: var(--muted);
-  line-height: 1;
 }
 
-.contrib-cell {
-  aspect-ratio: 1;
-  border-radius: 3px;
-  background: var(--contrib-empty, rgba(120, 120, 128, 0.13));
-  transition: background 120ms ease;
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
-.contrib-cell.level-1 {
-  background: var(--contrib-l1, rgba(52, 199, 89, 0.22));
+.calendar-day {
+  display: grid;
+  place-items: center;
+  padding: 6px 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
 }
 
-.contrib-cell.level-2 {
-  background: var(--contrib-l2, rgba(52, 199, 89, 0.42));
+.calendar-day:hover {
+  background: var(--surface);
 }
 
-.contrib-cell.level-3 {
-  background: var(--contrib-l3, rgba(52, 199, 89, 0.68));
+.calendar-day.outside {
+  opacity: 0.3;
 }
 
-.contrib-cell.level-4 {
-  background: var(--contrib-l4, #34c759);
+.calendar-day.today {
+  border-color: var(--line);
 }
 
-.contrib-legend {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 660;
-  color: var(--muted);
-}
-
-.contrib-legend .contrib-cell {
-  width: 12px;
-  height: 12px;
+.calendar-day.selected {
+  border-color: var(--blue);
+  background: var(--surface);
 }
 
 .weekday-rhythm {
