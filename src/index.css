@@ -1985,3 +1985,519 @@ main {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   ACHIEVEMENTS SYSTEM & INSTAGRAM SHARE CARD STYLES
+   ========================================================================== */
+
+/* Achievements Shelf */
+.achievements-shelf {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 12px;
+  padding: 8px 0;
+}
+
+@media (max-width: 480px) {
+  .achievements-shelf {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 8px;
+  }
+}
+
+.achievement-badge-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.achievement-badge-btn:hover {
+  transform: scale(1.06);
+}
+
+.achievement-badge-btn:active {
+  transform: scale(0.95);
+}
+
+.achievement-badge-circle {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  margin-bottom: 8px;
+  position: relative;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Locked State */
+.achievement-badge-btn.locked .achievement-badge-circle {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+/* Unlocked State */
+.achievement-badge-btn.unlocked .achievement-badge-circle {
+  color: #fff;
+  border: none;
+  background: var(--badge-color);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.achievement-badge-btn.unlocked .achievement-badge-circle::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  padding: 2px;
+  background: var(--badge-color);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.65;
+}
+
+.achievement-badge-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.achievement-badge-progress {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Collectible Achievement Sheet Modal */
+.collectible-sheet {
+  max-width: 420px !important;
+  border-radius: 36px 36px 0 0 !important;
+  padding: 16px 24px 32px !important;
+}
+
+.collectible-card-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.collectible-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 0.78;
+  border-radius: 28px;
+  padding: 32px 24px;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* Collected/Unlocked Card Design */
+.collectible-card.unlocked {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Glow Effect */
+.collectible-card.unlocked .collectible-card-glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, var(--badge-color) 0%, transparent 60%);
+  opacity: 0.15;
+  pointer-events: none;
+  animation: slowSpin 15s linear infinite;
+}
+
+.collectible-badge-container {
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  margin-bottom: 20px;
+  position: relative;
+  background: var(--bg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.collectible-card.unlocked .collectible-badge-container {
+  background: var(--badge-color);
+  color: #fff;
+  border: none;
+  animation: badgeUnlockPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.collectible-card.locked .collectible-badge-container {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.collectible-card h3 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+.collectible-desc {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0 0 24px 0;
+  max-width: 260px;
+}
+
+.collectible-status {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.1);
+  color: var(--text);
+}
+
+.collectible-card.unlocked .collectible-status {
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.collectible-actions {
+  width: 100%;
+}
+
+.collectible-actions .share-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Instagram Sharing Overlay Modal */
+.instagram-share-card-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: calc(100vw - 32px);
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 20px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: cardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.share-actions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.share-actions-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.instagram-card-wrapper {
+  perspective: 1000px;
+  margin-bottom: 16px;
+}
+
+/* 9:16 Instagram Card Canvas Mockup */
+.instagram-card {
+  width: 290px;
+  height: 480px;
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Beautiful Animated Gradient Mesh Background */
+.instagram-card .card-mesh {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #ff7b90 0%, #7d88ff 50%, #4ae3b5 100%);
+  background-size: 200% 200%;
+  animation: flowBackground 10s ease infinite;
+  z-index: 1;
+}
+
+.instagram-card .card-glass {
+  position: absolute;
+  inset: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px 18px;
+  box-sizing: border-box;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.instagram-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-date {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  text-align: center;
+}
+
+/* Achievement Card sharing content */
+.card-achievement-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.card-badge-glow {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  filter: blur(20px);
+  opacity: 0.6;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.card-badge-circle {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  z-index: 1;
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  margin-bottom: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.card-achievement-hero h4 {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.7);
+  margin: 0 0 6px 0;
+}
+
+.card-achievement-hero h2 {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin: 0 0 12px 0;
+  line-height: 1.1;
+}
+
+.achievement-desc {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+  line-height: 1.4;
+  margin: 0;
+  max-width: 220px;
+}
+
+/* General Progress sharing card content */
+.card-general-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ring-aesthetic {
+  display: grid;
+  place-items: center;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.pulsing-leaf {
+  animation: slowPulse 3s ease-in-out infinite;
+}
+
+.card-general-hero h4 {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.7);
+  margin: 0 0 6px 0;
+}
+
+.card-general-hero h2 {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin: 0 0 14px 0;
+}
+
+.card-quote {
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.45;
+  opacity: 0.9;
+  margin: 0;
+  max-width: 200px;
+}
+
+/* Footer stamp styling */
+.card-footer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.bujo-stamp {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  opacity: 0.65;
+  margin: 0;
+}
+
+/* Control buttons below Instagram share preview */
+.screenshot-tip {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  margin: 8px 0 16px 0;
+}
+
+.share-action-buttons {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.share-action-buttons button {
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  height: 44px;
+}
+
+/* Animations */
+@keyframes slowSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes slowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes badgeUnlockPop {
+  0% { transform: scale(0.3); }
+  75% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes flowBackground {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-pop {
+  animation: badgeUnlockPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}

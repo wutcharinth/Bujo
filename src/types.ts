@@ -84,3 +84,14 @@ export interface NewHabitInput {
   timerEnabled: boolean
   timerMinutes: number
 }
+
+export interface Achievement {
+  id: string
+  title: string
+  description: string
+  icon: string
+  color: string
+  unlocked: boolean
+  progressText: string
+  sharingText: string
+}

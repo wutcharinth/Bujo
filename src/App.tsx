@@ -96,6 +96,8 @@ import {
   Gamepad2,
   Cat,
   Dog,
+  Share,
+  Copy,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
@@ -104,7 +106,7 @@ import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeekl
 import { calculateStreaks } from './lib/habitStats'
 import { requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { DrinkCheckin, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
+import type { Achievement, DrinkCheckin, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'settings'
 
@@ -476,6 +478,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 activeHabits={bujo.activeHabits}
                 checkins={bujo.checkins}
                 moods={bujo.moods}
+                drinks={bujo.drinks}
                 streaks={appStreaks}
               />
             )}
@@ -717,6 +720,7 @@ function TodayView({
   onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
+  const [showTodayShare, setShowTodayShare] = useState(false)
   const completedCount = completedToday.size
   const progressPercent = Math.round(progress * 100)
   const weekKeys = useMemo(() => getWeekDateKeys(), [])
@@ -757,13 +761,32 @@ function TodayView({
       <div className="hero-panel">
         <div>
           <p className="panel-kicker">Today</p>
-          <h2>{activeHabits.length ? `${onTrackCount}/${activeHabits.length} on track` : 'Get started'}</h2>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{activeHabits.length ? `${onTrackCount}/${activeHabits.length} on track` : 'Get started'}</span>
+            {activeHabits.length > 0 && (
+              <button 
+                type="button" 
+                className="icon-button quiet share-today-trigger"
+                onClick={() => setShowTodayShare(true)}
+                aria-label="Share today's progress"
+                style={{ padding: '4px', opacity: 0.8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Share size={15} />
+              </button>
+            )}
+          </h2>
         </div>
         <div className="progress-ring" style={{ '--progress': `${progressPercent}%` } as CSSProperties}>
           <span>{progressPercent}</span>
           <small>%</small>
         </div>
       </div>
+
+      {showTodayShare && (
+        <InstagramShareModal
+          onClose={() => setShowTodayShare(false)}
+        />
+      )}
 
       <div className="metric-strip">
         <Metric icon={Flame} label="Current streak" value={`${streak}d`} />
@@ -1062,17 +1085,125 @@ function ActivityCalendar({
   )
 }
 
+const achievementIcons: Record<string, any> = {
+  Sprout: Sprout,
+  Flame: Flame,
+  GlassWater: GlassWater,
+  Timer: Timer,
+  Moon: Moon,
+  Trophy: Trophy,
+}
+
+function computeAchievements(
+  habits: Habit[],
+  checkins: Array<{ habitId: string; date: string }>,
+  moods: MoodCheckin[],
+  drinks: DrinkCheckin[],
+  streak: number
+): Achievement[] {
+  const hasFirstBloom = checkins.length > 0
+  const hasStreakBlaze = streak >= 7
+  const maxWater = drinks.length > 0 ? Math.max(...drinks.map((d) => d.water || 0)) : 0
+  const hasHydrationHero = maxWater >= 5
+
+  const hasZenMaster = checkins.some((c) => {
+    const h = habits.find((habit) => habit.id === c.habitId)
+    return h ? h.timerEnabled : false
+  })
+
+  const eveningMoodsCount = moods.filter((m) => m.timeOfDay === 'evening').length
+  const hasSelfReflective = eveningMoodsCount >= 3
+
+  const checkinsByDate: Record<string, number> = {}
+  checkins.forEach((c) => {
+    checkinsByDate[c.date] = (checkinsByDate[c.date] || 0) + 1
+  })
+  const maxDailyCheckins = Object.values(checkinsByDate).length > 0 ? Math.max(...Object.values(checkinsByDate)) : 0
+  const hasAllRounder = maxDailyCheckins >= 3
+
+  return [
+    {
+      id: 'first-bloom',
+      title: 'First Bloom',
+      description: 'Completed your first ever daily tiny routine to start your growth journey.',
+      icon: 'Sprout',
+      color: 'linear-gradient(135deg, #2ecc71, #27ae60)',
+      unlocked: hasFirstBloom,
+      progressText: hasFirstBloom ? 'Unlocked' : '0/1 step',
+      sharingText: '🌱 I just unlocked the "First Bloom" achievement on Bujo Bloom! My personal growth journey has officially begun! 🚀',
+    },
+    {
+      id: 'streak-blaze',
+      title: 'Streak Blaze',
+      description: 'Maintained a consistent habit completion streak for 7 consecutive days.',
+      icon: 'Flame',
+      color: 'linear-gradient(135deg, #e67e22, #e74c3c)',
+      unlocked: hasStreakBlaze,
+      progressText: hasStreakBlaze ? 'Unlocked' : `${streak}/7 days`,
+      sharingText: `🔥 Streak Blaze Unlocked! I've kept up a 7-day habit streak on Bujo Bloom. Consistency is power! 💪`,
+    },
+    {
+      id: 'hydration-hero',
+      title: 'Hydration Hero',
+      description: 'Logged 5 or more cups of water in a single day to stay clean and hydrated.',
+      icon: 'GlassWater',
+      color: 'linear-gradient(135deg, #3498db, #2980b9)',
+      unlocked: hasHydrationHero,
+      progressText: hasHydrationHero ? 'Unlocked' : `${maxWater}/5 cups`,
+      sharingText: '💧 Hydration Hero Unlocked! Successfully stayed perfectly hydrated with 5+ cups of water logged on Bujo Bloom today! 🥤',
+    },
+    {
+      id: 'zen-master',
+      title: 'Zen Master',
+      description: 'Completed at least one focused meditation or work session using the habit timer.',
+      icon: 'Timer',
+      color: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
+      unlocked: hasZenMaster,
+      progressText: hasZenMaster ? 'Unlocked' : '0/1 session',
+      sharingText: '🧘‍♂️ Zen Master Unlocked! Just completed a deep focus habit session with the Bujo Bloom focus timer! Mindful and productive. ⚡',
+    },
+    {
+      id: 'self-reflective',
+      title: 'Self-Reflective',
+      description: 'Recorded at least 3 evening mood check-ins to review and reflect on your days.',
+      icon: 'Moon',
+      color: 'linear-gradient(135deg, #4f68ff, #3d3b76)',
+      unlocked: hasSelfReflective,
+      progressText: hasSelfReflective ? 'Unlocked' : `${eveningMoodsCount}/3 reviews`,
+      sharingText: '🌙 Self-Reflective Unlocked! I\'ve logged 3 evening reviews on Bujo Bloom to reflect on my daily moods and thoughts. 💭',
+    },
+    {
+      id: 'all-rounder',
+      title: 'All-Rounder',
+      description: 'Achieved complete success by logging 3 or more completed habits in a single day.',
+      icon: 'Trophy',
+      color: 'linear-gradient(135deg, #f1c40f, #d69d16)',
+      unlocked: hasAllRounder,
+      progressText: hasAllRounder ? 'Unlocked' : `${maxDailyCheckins}/3 habits`,
+      sharingText: `🏆 All-Rounder Unlocked! Crushed it today by completing 3+ habits in a single day on Bujo Bloom! Hitting high gear! 🌟`,
+    },
+  ]
+}
+
 function ProgressView({
   activeHabits,
   checkins,
   moods,
+  drinks,
   streaks,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
   moods: MoodCheckin[]
+  drinks: DrinkCheckin[]
   streaks: { current: number; best: number; total: number }
 }) {
+  const achievements = useMemo(() => {
+    return computeAchievements(activeHabits, checkins, moods, drinks, streaks.current)
+  }, [activeHabits, checkins, moods, drinks, streaks.current])
+
+  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
+
   const weekKeys = getWeekDateKeys()
   const recentKeys = getRecentDateKeys(14)
   const rhythmKeys = getRecentDateKeys(28)
@@ -1146,6 +1277,34 @@ function ProgressView({
         <Metric icon={Flame} label="Current streak" value={`${streaks.current}d`} />
         <Metric icon={BarChart3} label="Best streak" value={`${streaks.best}d`} />
         <Metric icon={Check} label="Perfect days" value={`${perfectDays}/7`} />
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Achievements</h2>
+          <span>{achievements.filter((a) => a.unlocked).length}/{achievements.length} unlocked</span>
+        </div>
+        <div className="achievements-shelf">
+          {achievements.map((achievement) => {
+            const Icon = achievementIcons[achievement.icon]
+            return (
+              <button
+                key={achievement.id}
+                type="button"
+                className={`achievement-badge-btn ${achievement.unlocked ? 'unlocked' : 'locked'}`}
+                style={{ '--badge-color': achievement.color } as any}
+                onClick={() => setSelectedAchievement(achievement)}
+                aria-label={`View achievement ${achievement.title}`}
+              >
+                <div className="achievement-badge-circle">
+                  <Icon size={22} />
+                </div>
+                <span className="achievement-badge-title">{achievement.title}</span>
+                <span className="achievement-badge-progress">{achievement.progressText}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="panel-section">
@@ -1284,6 +1443,13 @@ function ProgressView({
         moods={moods}
         doneIdsForDate={doneIdsForDate}
       />
+
+      {selectedAchievement && (
+        <AchievementCardModal
+          achievement={selectedAchievement}
+          onClose={() => setSelectedAchievement(null)}
+        />
+      )}
     </section>
   )
 }
@@ -1899,6 +2065,202 @@ function tabTitle(tab: TabId) {
   if (tab === 'habits') return 'Your habits'
   if (tab === 'progress') return 'Progress'
   return 'Settings'
+}
+
+function AchievementCardModal({
+  achievement,
+  onClose,
+}: {
+  achievement: Achievement
+  onClose: () => void
+}) {
+  const [showShareCard, setShowShareCard] = useState(false)
+  const Icon = achievementIcons[achievement.icon]
+
+  const handleShareClick = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Bujo Bloom - Achievement Unlocked!`,
+          text: achievement.sharingText,
+          url: 'https://bujobloom.web.app',
+        })
+      } catch (err) {
+        console.error(err)
+        setShowShareCard(true)
+      }
+    } else {
+      setShowShareCard(true)
+    }
+  }
+
+  return (
+    <div className="sheet-backdrop" role="presentation" onClick={onClose} style={{ zIndex: 1000 }}>
+      <div className="sheet collectible-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div className="sheet-header" style={{ justifyContent: 'flex-end', paddingBottom: '0' }}>
+          <button className="icon-button quiet" type="button" aria-label="Close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="collectible-card-container">
+          <div className={`collectible-card ${achievement.unlocked ? 'unlocked' : 'locked'}`} style={{ '--card-gradient': achievement.color } as any}>
+            <div className="collectible-card-glow" />
+            <div className="collectible-badge-container" style={{ background: achievement.unlocked ? 'var(--bg)' : 'rgba(255,255,255,0.06)' }}>
+              <Icon size={42} className="collectible-badge-icon" />
+            </div>
+            <h3>{achievement.title}</h3>
+            <p className="collectible-desc">{achievement.description}</p>
+            <span className="collectible-status">
+              {achievement.unlocked ? '✨ COLLECTED ✨' : '🔒 LOCKED'}
+            </span>
+          </div>
+
+          <div className="collectible-actions">
+            {achievement.unlocked ? (
+              <button className="primary-action share-btn" type="button" onClick={handleShareClick}>
+                <Share size={18} />
+                <span>Share Achievement</span>
+              </button>
+            ) : (
+              <p className="helper-copy" style={{ textAlign: 'center', marginTop: '12px' }}>
+                Keep building your routines to collect this badge!
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showShareCard && (
+        <InstagramShareModal
+          achievement={achievement}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function InstagramShareModal({
+  achievement,
+  onClose,
+}: {
+  achievement?: Achievement
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const todayDate = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+
+  const shareText = achievement 
+    ? achievement.sharingText 
+    : `🌱 Checked in on Bujo Bloom today! Building positive habits one day at a time. Join me! 🚀`
+
+  const handleCopyText = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Bujo Bloom Growth Card',
+          text: shareText,
+          url: 'https://bujobloom.web.app',
+        })
+      } catch (err) {
+        console.error(err)
+      }
+    }
+  }
+
+  const quotes = [
+    "Tiny daily actions lead to big, beautiful blooms.",
+    "Consistency is the soil where change takes root.",
+    "Your habits define your growth. Keep blooming.",
+    "One routine at a time, you are transforming.",
+    "Bloom where you are planted, and grow every day.",
+  ]
+  const quote = quotes[Math.abs(new Date().getDate() % quotes.length)]
+
+  return (
+    <div className="sheet-backdrop" role="presentation" onClick={onClose} style={{ zIndex: 1100 }}>
+      <div className="instagram-share-card-container" onClick={(e) => e.stopPropagation()}>
+        <div className="share-actions-header">
+          <h3>Share Progress</h3>
+          <button className="icon-button quiet close-share-btn" type="button" aria-label="Close" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="instagram-card-wrapper">
+          <div className="instagram-card">
+            <div className="card-mesh" />
+            <div className="card-glass">
+              <div className="card-header">
+                <div className="brand-badge">
+                  <Leaf size={16} />
+                  <span>Bujo Bloom</span>
+                </div>
+                <span className="card-date">{todayDate}</span>
+              </div>
+
+              <div className="card-body">
+                {achievement ? (() => {
+                  const AchievementIcon = achievementIcons[achievement.icon]
+                  return (
+                    <div className="card-achievement-hero">
+                      <div className="card-badge-glow" style={{ background: achievement.color }} />
+                      <div className="card-badge-circle animate-pop" style={{ background: achievement.color }}>
+                        <AchievementIcon size={36} />
+                      </div>
+                      <h4>Achievement Unlocked</h4>
+                      <h2>{achievement.title}</h2>
+                      <p className="achievement-desc">"{achievement.description}"</p>
+                    </div>
+                  )
+                })() : (
+                  <div className="card-general-hero">
+                    <div className="ring-aesthetic animate-pop">
+                      <Leaf size={38} className="pulsing-leaf" />
+                    </div>
+                    <h4>Daily Progress</h4>
+                    <h2>Keep Growing</h2>
+                    <p className="card-quote">"{quote}"</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="card-footer">
+                <p className="bujo-stamp">🌱 BUJOBLOOM.WEB.APP</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="screenshot-tip">📸 Take a screenshot to share directly to Instagram Stories!</p>
+
+        <div className="share-action-buttons">
+          {typeof navigator.share !== 'undefined' && (
+            <button className="primary-action share-pill" type="button" onClick={handleNativeShare}>
+              <Share size={18} />
+              <span>Native Share</span>
+            </button>
+          )}
+          <button className="secondary-action copy-pill" type="button" onClick={handleCopyText}>
+            {copied ? <Check size={18} /> : <Copy size={18} />}
+            <span>{copied ? 'Copied!' : 'Copy Emoji Text'}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default App
