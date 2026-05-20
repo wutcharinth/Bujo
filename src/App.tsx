@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek } from 'date-fns'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { addMonths, differenceInCalendarDays, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek } from 'date-fns'
 import type { LucideIcon } from 'lucide-react'
 import {
   Archive,
@@ -98,17 +98,28 @@ import {
   Dog,
   Share,
   Copy,
+  Users,
+  UserPlus,
+  UserMinus,
+  PartyPopper,
+  Crown,
+  Medal,
+  Lock,
+  Unlock,
+  QrCode,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
+import { useFriends } from './hooks/useFriends'
 import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
 import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget, WEEKDAY_SHORT } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
 import { requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { Achievement, DrinkCheckin, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
+import type { Achievement, Cheer, CheerType, DrinkCheckin, FriendProfile, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
 
-type TabId = 'today' | 'habits' | 'progress' | 'settings'
+type TabId = 'today' | 'habits' | 'progress' | 'friends' | 'settings'
+type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>
 
 const habitIcons: Record<HabitIcon, LucideIcon> = {
   // Health & Fitness
@@ -289,6 +300,7 @@ const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
   { id: 'today', label: 'Today', icon: Home },
   { id: 'habits', label: 'Habits', icon: Check },
   { id: 'progress', label: 'Progress', icon: BarChart3 },
+  { id: 'friends', label: 'Friends', icon: Users },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -357,6 +369,8 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const bujo = useBujoData(authState.user)
+  const social = useFriends(authState.user)
+  const { syncMyProfile } = social
   const todayKey = getDateKey()
   const currentWeekKeys = useMemo(() => getWeekDateKeys(), [])
 
@@ -393,6 +407,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
 
   const allCheckinDates = useMemo(() => bujo.checkins.map((checkin) => checkin.date), [bujo.checkins])
   const appStreaks = useMemo(() => calculateStreaks(allCheckinDates), [allCheckinDates])
+  const currentStreak = appStreaks.current
   const onTrackCount = useMemo(
     () =>
       bujo.activeHabits.filter((habit) => getHabitGoalProgress(habit, bujo.checkins, todayKey, currentWeekKeys).onTrack)
@@ -401,6 +416,13 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   )
   const progress = bujo.activeHabits.length ? onTrackCount / bujo.activeHabits.length : 0
   const greetingName = authState.user?.displayName?.split(' ')[0] ?? 'there'
+
+  // Sync public profile for friends feature
+  useEffect(() => {
+    if (!bujo.loading && bujo.activeHabits.length > 0) {
+      syncMyProfile(currentStreak, bujo.activeHabits.length, progress)
+    }
+  }, [currentStreak, bujo.activeHabits.length, progress, bujo.loading, syncMyProfile])
 
   const openCreateSheet = () => {
     setEditingHabit(null)
@@ -457,7 +479,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 drinks={bujo.drinks}
                 completedToday={completedToday}
                 progress={progress}
-                streak={appStreaks.current}
+                streak={currentStreak}
                 onTrackCount={onTrackCount}
                 onAddHabit={openCreateSheet}
                 onToggle={bujo.toggleToday}
@@ -480,6 +502,21 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 moods={bujo.moods}
                 drinks={bujo.drinks}
                 streaks={appStreaks}
+              />
+            )}
+            {activeTab === 'friends' && (
+              <FriendsView
+                myProfile={social.myProfile}
+                friends={social.friends}
+                loading={social.loading}
+                cheersSentToday={social.cheersSentToday}
+                cheersReceivedToday={social.cheersReceivedToday}
+                cheersSent={social.cheersSent}
+                cheersReceived={social.cheersReceived}
+                onFollow={social.followByCode}
+                onUnfollow={social.unfollow}
+                onSendCheer={social.sendCheer}
+                onTogglePrivacy={social.togglePrivacy}
               />
             )}
             {activeTab === 'settings' && (
@@ -1085,7 +1122,7 @@ function ActivityCalendar({
   )
 }
 
-const achievementIcons: Record<string, any> = {
+const achievementIcons: Record<string, LucideIcon> = {
   Sprout: Sprout,
   Flame: Flame,
   GlassWater: GlassWater,
@@ -1198,9 +1235,10 @@ function ProgressView({
   drinks: DrinkCheckin[]
   streaks: { current: number; best: number; total: number }
 }) {
+  const currentStreak = streaks.current
   const achievements = useMemo(() => {
-    return computeAchievements(activeHabits, checkins, moods, drinks, streaks.current)
-  }, [activeHabits, checkins, moods, drinks, streaks.current])
+    return computeAchievements(activeHabits, checkins, moods, drinks, currentStreak)
+  }, [activeHabits, checkins, moods, drinks, currentStreak])
 
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
 
@@ -1292,7 +1330,7 @@ function ProgressView({
                 key={achievement.id}
                 type="button"
                 className={`achievement-badge-btn ${achievement.unlocked ? 'unlocked' : 'locked'}`}
-                style={{ '--badge-color': achievement.color } as any}
+                style={{ '--badge-color': achievement.color } as CSSVariableProperties}
                 onClick={() => setSelectedAchievement(achievement)}
                 aria-label={`View achievement ${achievement.title}`}
               >
@@ -1467,7 +1505,7 @@ function SettingsView({
   photoURL?: string | null
   displayName?: string | null
   email?: string | null
-  prefs: { enabled: boolean; timezone: string; sound?: string; theme?: string; themeColor?: string }
+  prefs: NotificationPrefs
   onEnableReminders: () => Promise<void>
   onDisableReminders: () => Promise<void>
   onSavePrefs: (updates: Partial<NotificationPrefs>) => Promise<void>
@@ -1540,7 +1578,12 @@ function SettingsView({
           <select
             className="sound-select"
             value={prefs.theme || 'system'}
-            onChange={(e) => run(() => onSavePrefs({ theme: e.target.value as any }))}
+            onChange={(e) => {
+              const nextTheme = e.target.value
+              if (nextTheme === 'system' || nextTheme === 'light' || nextTheme === 'dark') {
+                run(() => onSavePrefs({ theme: nextTheme }))
+              }
+            }}
             disabled={saving}
           >
             <option value="system">System</option>
@@ -2064,7 +2107,363 @@ function SignInScreen({ error, onSignIn }: { error: string | null; onSignIn: () 
 function tabTitle(tab: TabId) {
   if (tab === 'habits') return 'Your habits'
   if (tab === 'progress') return 'Progress'
+  if (tab === 'friends') return 'Friends'
   return 'Settings'
+}
+
+function FriendsView({
+  myProfile,
+  friends,
+  loading,
+  cheersSentToday,
+  cheersReceivedToday,
+  cheersSent,
+  cheersReceived,
+  onFollow,
+  onUnfollow,
+  onSendCheer,
+  onTogglePrivacy,
+}: {
+  myProfile: FriendProfile | null
+  friends: FriendProfile[]
+  loading: boolean
+  cheersSentToday: Set<string>
+  cheersReceivedToday: number
+  cheersSent: Cheer[]
+  cheersReceived: Cheer[]
+  onFollow: (code: string) => Promise<{ success: boolean; message: string }>
+  onUnfollow: (uid: string) => Promise<void>
+  onSendCheer: (uid: string, type?: CheerType) => Promise<void>
+  onTogglePrivacy: (isPublic: boolean) => Promise<void>
+}) {
+  const [friendCode, setFriendCode] = useState('')
+  const [followMessage, setFollowMessage] = useState<string | null>(null)
+  const [followError, setFollowError] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [cheeringUid, setCheeringUid] = useState<string | null>(null)
+  const rankedFriends = useMemo(
+    () =>
+      [...friends].sort(
+        (first, second) =>
+          second.todayProgress - first.todayProgress ||
+          second.streak - first.streak ||
+          (second.cheersToday ?? 0) - (first.cheersToday ?? 0),
+      ),
+    [friends],
+  )
+  const champion = rankedFriends[0]
+  const podium = rankedFriends.slice(0, 3)
+  const totalCheersReceived = cheersReceived.length
+  const profileIsPublic = myProfile?.isPublic !== false
+  const friendCodeValue = myProfile?.friendCode
+
+  const handleCopyCode = useCallback(async () => {
+    if (!friendCodeValue) return
+    try {
+      await navigator.clipboard.writeText(friendCodeValue)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    } catch {
+      // fallback: select text
+    }
+  }, [friendCodeValue])
+
+  const handleFollow = async () => {
+    if (!friendCode.trim()) return
+    setSubmitting(true)
+    setFollowMessage(null)
+    try {
+      const result = await onFollow(friendCode)
+      setFollowMessage(result.message)
+      setFollowError(!result.success)
+      if (result.success) setFriendCode('')
+    } catch {
+      setFollowMessage('Something went wrong.')
+      setFollowError(true)
+    }
+    setSubmitting(false)
+    setTimeout(() => setFollowMessage(null), 4000)
+  }
+
+  const handleSendCheer = async (friend: FriendProfile, type: CheerType = 'spark') => {
+    setCheeringUid(friend.uid)
+    try {
+      await onSendCheer(friend.uid, type)
+    } finally {
+      setCheeringUid(null)
+    }
+  }
+
+  const handleShareCode = async () => {
+    if (!friendCodeValue) return
+    if (typeof navigator.share !== 'undefined') {
+      try {
+        await navigator.share({
+          title: 'Follow me on Bujo Bloom!',
+          text: `Add me on Bujo Bloom. My friend code: ${friendCodeValue}\nJoin me in building better habits!`,
+          url: 'https://bujobloom.web.app',
+        })
+      } catch {
+        handleCopyCode()
+      }
+    } else {
+      handleCopyCode()
+    }
+  }
+
+  const getActivityMeta = (lastActive: string) => {
+    const daysAgo = differenceInCalendarDays(new Date(), dateFromKey(lastActive))
+
+    if (daysAgo <= 0) return { label: 'Active today', tone: 'fresh' }
+    if (daysAgo === 1) return { label: 'Active yesterday', tone: 'warm' }
+    if (daysAgo <= 7) return { label: `${daysAgo}d ago`, tone: 'warm' }
+
+    return { label: 'Quiet lately', tone: 'quiet' }
+  }
+
+  const cheerActions: Array<{ type: CheerType; label: string; icon: LucideIcon }> = [
+    { type: 'spark', label: 'Spark', icon: Sparkles },
+    { type: 'clap', label: 'Bravo', icon: PartyPopper },
+    { type: 'fire', label: 'Fire', icon: Flame },
+    { type: 'crown', label: 'Crown', icon: Crown },
+  ]
+
+  return (
+    <section className="screen-stack" aria-label="Friends">
+      <div className="champion-card">
+        <div className="champion-orb">
+          {champion?.photoURL ? <img src={champion.photoURL} alt="" referrerPolicy="no-referrer" /> : <Crown size={28} />}
+        </div>
+        <div>
+          <p className="panel-kicker">Champion today</p>
+          <h2>{champion?.displayName ?? 'Invite a friend'}</h2>
+          <p>
+            {champion
+              ? `${champion.todayProgress}% progress · ${champion.streak}d streak · ${champion.cheersToday ?? 0} cheers`
+              : 'Friends make tiny routines feel a little more alive.'}
+          </p>
+        </div>
+        <span className="champion-score">{champion?.todayProgress ?? 0}%</span>
+      </div>
+
+      <div className="friend-stats-grid">
+        <div>
+          <PartyPopper size={18} />
+          <strong>{cheersSent.length}</strong>
+          <span>Sent</span>
+        </div>
+        <div>
+          <Crown size={18} />
+          <strong>{cheersReceivedToday}</strong>
+          <span>Received</span>
+        </div>
+        <div>
+          <Users size={18} />
+          <strong>{friends.length}</strong>
+          <span>Following</span>
+        </div>
+      </div>
+
+      <div className="friend-code-card">
+        <div className="friend-code-header">
+          <div>
+            <p className="panel-kicker">Your friend code</p>
+            <h2 className="friend-code-value">{friendCodeValue ?? '...'}</h2>
+          </div>
+          <div className="friend-code-actions">
+            <button
+              className={profileIsPublic ? 'icon-button' : 'icon-button quiet'}
+              type="button"
+              onClick={() => onTogglePrivacy(!profileIsPublic)}
+              aria-label={profileIsPublic ? 'Make profile private' : 'Make profile public'}
+            >
+              {profileIsPublic ? <Unlock size={20} /> : <Lock size={20} />}
+            </button>
+            <button className="icon-button" type="button" onClick={handleCopyCode} aria-label="Copy code">
+              {codeCopied ? <Check size={20} /> : <Copy size={20} />}
+            </button>
+            <button className="icon-button" type="button" onClick={handleShareCode} aria-label="Share code">
+              <Share size={20} />
+            </button>
+          </div>
+        </div>
+        <p className="helper-copy">
+          Share this code with friends. Your profile is {profileIsPublic ? 'public to signed-in Bujo friends' : 'private'}.
+        </p>
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Add a friend</h2>
+        </div>
+        <div className="add-friend-form">
+          <div className="friend-input-row">
+            <input
+              type="text"
+              placeholder="Enter friend code"
+              value={friendCode}
+              onChange={(e) => setFriendCode(e.target.value.toUpperCase())}
+              maxLength={8}
+              className="friend-code-input"
+            />
+            <button
+              className="primary-action follow-btn"
+              type="button"
+              onClick={handleFollow}
+              disabled={submitting || !friendCode.trim()}
+            >
+              <UserPlus size={18} />
+              <span>{submitting ? '...' : 'Follow'}</span>
+            </button>
+          </div>
+          {followMessage && (
+            <p className={`follow-feedback ${followError ? 'error' : 'success'}`}>{followMessage}</p>
+          )}
+        </div>
+      </div>
+
+      {podium.length > 0 && (
+        <div className="podium-card">
+          {podium.map((friend, index) => {
+            const Icon = index === 0 ? Crown : Medal
+            return (
+              <div className={`podium-place rank-${index + 1}`} key={friend.uid}>
+                <Icon size={18} />
+                <strong>{friend.displayName}</strong>
+                <span>{friend.todayProgress}%</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Leaderboard</h2>
+          <span>{friends.length} {friends.length === 1 ? 'friend' : 'friends'}</span>
+        </div>
+
+        {loading ? (
+          <p className="helper-copy">Loading friends...</p>
+        ) : friends.length === 0 ? (
+          <div className="empty-friends">
+            <Users size={40} className="empty-friends-icon" />
+            <p>No friends yet</p>
+            <span>Share your friend code or add someone using theirs!</span>
+          </div>
+        ) : (
+          <div className="leaderboard-list">
+            {rankedFriends.map((friend, index) => {
+              const cheered = cheersSentToday.has(friend.uid)
+              const activity = getActivityMeta(friend.lastActive)
+              const CheerIcon = cheered ? Check : PartyPopper
+
+              return (
+                <div className="leaderboard-row" key={friend.uid}>
+                  <span className="leader-rank">{index + 1}</span>
+                  <div className="friend-avatar">
+                    {friend.photoURL ? (
+                      <img src={friend.photoURL} alt="" referrerPolicy="no-referrer" />
+                    ) : (
+                      <Users size={22} />
+                    )}
+                  </div>
+                  <div className="friend-info">
+                    <div className="friend-title-line">
+                      <strong>{friend.displayName}</strong>
+                      <span className={`activity-status ${activity.tone}`}>{activity.label}</span>
+                    </div>
+                    <div className="friend-progress-bar" aria-label={`${friend.displayName} progress ${friend.todayProgress}%`}>
+                      <span style={{ width: `${friend.todayProgress}%` }} />
+                    </div>
+                    <div className="friend-stats">
+                      <span><Flame size={13} /> {friend.streak}d</span>
+                      <span><Target size={13} /> {friend.todayProgress}%</span>
+                      <span><PartyPopper size={13} /> {friend.cheersToday ?? 0}</span>
+                    </div>
+                    <div className="activity-dots" aria-hidden="true">
+                      {Array.from({ length: 7 }, (_, dotIndex) => (
+                        <span className={dotIndex < Math.max(1, Math.round((friend.todayProgress / 100) * 7)) ? 'active' : ''} key={dotIndex} />
+                      ))}
+                    </div>
+                    <div className="cheer-row">
+                      {cheerActions.map(({ type, label, icon: Icon }) => (
+                        <button
+                          type="button"
+                          key={type}
+                          disabled={cheered || cheeringUid === friend.uid}
+                          onClick={() => handleSendCheer(friend, type)}
+                        >
+                          <Icon size={14} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="friend-actions">
+                    <button
+                      className={cheered ? 'cheer-main sent' : 'cheer-main'}
+                      type="button"
+                      disabled={cheered || cheeringUid === friend.uid}
+                      onClick={() => handleSendCheer(friend)}
+                      aria-label={`Cheer ${friend.displayName}`}
+                    >
+                      <CheerIcon size={18} />
+                    </button>
+                    <button
+                      className="icon-button quiet unfollow-btn"
+                      type="button"
+                      onClick={() => onUnfollow(friend.uid)}
+                      aria-label={`Unfollow ${friend.displayName}`}
+                    >
+                      <UserMinus size={18} />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Cheers</h2>
+          <span>{totalCheersReceived} today</span>
+        </div>
+        {cheersReceived.length === 0 ? (
+          <div className="cheer-empty">
+            <PartyPopper size={24} />
+            <p>Send a few cheers first. Good energy tends to echo.</p>
+          </div>
+        ) : (
+          <div className="cheer-feed">
+            {cheersReceived.map((cheer) => {
+              const cheerAction = cheerActions.find((action) => action.type === cheer.type) ?? cheerActions[0]
+              const Icon = cheerAction.icon
+              return (
+                <div className="cheer-item" key={cheer.id}>
+                  <span>
+                    <Icon size={16} />
+                  </span>
+                  <div>
+                    <strong>{cheer.fromName}</strong>
+                    <small>{cheerAction.label} cheer · {format(dateFromKey(cheer.date), 'MMM d')}</small>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="panel-section compact-social-note">
+        <QrCode size={20} />
+        <p className="helper-copy">Cheering is limited to once per friend each day so it stays meaningful.</p>
+      </div>
+    </section>
+  )
 }
 
 function AchievementCardModal({
@@ -2105,7 +2504,7 @@ function AchievementCardModal({
         </div>
 
         <div className="collectible-card-container">
-          <div className={`collectible-card ${achievement.unlocked ? 'unlocked' : 'locked'}`} style={{ '--card-gradient': achievement.color } as any}>
+          <div className={`collectible-card ${achievement.unlocked ? 'unlocked' : 'locked'}`} style={{ '--card-gradient': achievement.color } as CSSVariableProperties}>
             <div className="collectible-card-glow" />
             <div className="collectible-badge-container" style={{ background: achievement.unlocked ? 'var(--bg)' : 'rgba(255,255,255,0.06)' }}>
               <Icon size={42} className="collectible-badge-icon" />

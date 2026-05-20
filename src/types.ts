@@ -95,3 +95,29 @@ export interface Achievement {
   progressText: string
   sharingText: string
 }
+
+export interface FriendProfile {
+  uid: string
+  displayName: string
+  photoURL: string
+  friendCode: string
+  streak: number
+  habitsCount: number
+  todayProgress: number
+  lastActive: string
+  cheersToday?: number
+  isPublic?: boolean
+}
+
+export type CheerType = 'spark' | 'clap' | 'fire' | 'crown'
+
+export interface Cheer {
+  id: string
+  fromUid: string
+  toUid: string
+  fromName: string
+  toName?: string
+  type: CheerType
+  date: string
+  createdAt?: unknown
+}
