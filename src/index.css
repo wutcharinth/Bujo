@@ -1529,10 +1529,10 @@ main {
   left: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   width: min(100%, 480px);
   margin: 0 auto;
-  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface-strong) 82%, transparent);
   backdrop-filter: blur(24px);
@@ -1542,13 +1542,26 @@ main {
 .tab-item {
   display: grid;
   place-items: center;
-  gap: 3px;
-  min-height: 56px;
-  border-radius: 16px;
+  gap: 2px;
+  min-width: 0;
+  min-height: 52px;
+  border-radius: 14px;
   color: var(--muted);
   background: transparent;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 740;
+}
+
+.tab-item svg {
+  width: 21px;
+  height: 21px;
+}
+
+.tab-item span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tab-item.active {
@@ -1637,11 +1650,15 @@ main {
   width: 78px;
   height: 78px;
   border-radius: 24px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.35), transparent 34%),
-    linear-gradient(145deg, var(--theme-color), var(--green));
+  overflow: hidden;
+  background: var(--surface-strong);
   box-shadow: 0 24px 54px rgba(40, 120, 255, 0.24);
+}
+
+.app-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .google-button {
@@ -2827,6 +2844,123 @@ main {
 .friend-stats-grid span {
   font-size: 12px;
   font-weight: 760;
+}
+
+.social-feed-panel {
+  overflow: hidden;
+}
+
+.friend-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.friend-feed-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface-muted);
+}
+
+.feed-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  color: var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+}
+
+.friend-feed-item.celebrate .feed-icon {
+  color: #fff;
+  background: linear-gradient(145deg, var(--gold), var(--theme-color));
+}
+
+.friend-feed-item.fresh .feed-icon {
+  color: #fff;
+  background: linear-gradient(145deg, var(--green), var(--theme-color));
+}
+
+.friend-feed-item.warm .feed-icon {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.friend-feed-item.quiet .feed-icon {
+  color: var(--muted);
+  background: rgba(120, 120, 128, 0.14);
+}
+
+.feed-content {
+  min-width: 0;
+}
+
+.feed-content strong,
+.feed-content small,
+.feed-side span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-content strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 830;
+}
+
+.feed-content small,
+.feed-side span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.feed-side {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  max-width: 86px;
+}
+
+.feed-cheer-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, var(--theme-color), var(--pink));
+}
+
+.feed-cheer-button:disabled {
+  color: var(--muted);
+  background: rgba(120, 120, 128, 0.14);
+  opacity: 0.7;
+}
+
+.feed-empty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  color: var(--muted);
+  background: var(--surface-muted);
+}
+
+.feed-empty p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 680;
 }
 
 .podium-card {

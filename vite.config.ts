@@ -11,7 +11,7 @@ export default defineConfig({
       filename: 'sw.ts',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['bujo-icon.svg', 'favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
         name: 'Bujo',

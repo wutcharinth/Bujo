@@ -304,6 +304,29 @@ const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
+const cheerActions: Array<{ type: CheerType; label: string; icon: LucideIcon }> = [
+  { type: 'spark', label: 'Spark', icon: Sparkles },
+  { type: 'clap', label: 'Bravo', icon: PartyPopper },
+  { type: 'fire', label: 'Fire', icon: Flame },
+  { type: 'crown', label: 'Crown', icon: Crown },
+]
+
+function getCheerAction(type: CheerType) {
+  return cheerActions.find((action) => action.type === type) ?? cheerActions[0]
+}
+
+function getActivityMeta(lastActive: string) {
+  if (!lastActive) return { label: 'No activity yet', tone: 'quiet', daysAgo: 999 }
+
+  const daysAgo = differenceInCalendarDays(new Date(), dateFromKey(lastActive))
+
+  if (daysAgo <= 0) return { label: 'Active today', tone: 'fresh', daysAgo }
+  if (daysAgo === 1) return { label: 'Active yesterday', tone: 'warm', daysAgo }
+  if (daysAgo <= 7) return { label: `${daysAgo}d ago`, tone: 'warm', daysAgo }
+
+  return { label: 'Quiet lately', tone: 'quiet', daysAgo }
+}
+
 const defaultHabit: NewHabitInput = {
   name: '',
   icon: 'sparkles',
@@ -2065,9 +2088,7 @@ function LoadingPanel() {
 function SplashScreen() {
   return (
     <div className="splash-screen">
-      <div className="app-mark">
-        <Leaf size={32} />
-      </div>
+      <AppIconMark />
       <p>Bujo</p>
     </div>
   )
@@ -2076,11 +2097,17 @@ function SplashScreen() {
 function ConfigScreen() {
   return (
     <div className="auth-screen">
-      <div className="app-mark">
-        <Leaf size={31} />
-      </div>
+      <AppIconMark />
       <h1>Connect Firebase</h1>
       <p>Add your Firebase values to `.env.local`, then restart the dev server.</p>
+    </div>
+  )
+}
+
+function AppIconMark() {
+  return (
+    <div className="app-mark">
+      <img src="/bujo-icon.svg" alt="" aria-hidden="true" />
     </div>
   )
 }
@@ -2088,9 +2115,7 @@ function ConfigScreen() {
 function SignInScreen({ error, onSignIn }: { error: string | null; onSignIn: () => Promise<void> }) {
   return (
     <div className="auth-screen">
-      <div className="app-mark">
-        <Leaf size={31} />
-      </div>
+      <AppIconMark />
       <p className="eyebrow">Bujo</p>
       <h1>Small habits, beautifully kept.</h1>
       <p>Sign in with Google to sync your routines, streaks, reminders, and timers.</p>
@@ -2157,6 +2182,101 @@ function FriendsView({
   const totalCheersReceived = cheersReceived.length
   const profileIsPublic = myProfile?.isPublic !== false
   const friendCodeValue = myProfile?.friendCode
+  const friendFeed = useMemo(() => {
+    const items: Array<{
+      id: string
+      icon: LucideIcon
+      title: string
+      detail: string
+      meta: string
+      tone: 'fresh' | 'warm' | 'quiet' | 'celebrate'
+      sort: number
+      friendUid?: string
+    }> = []
+
+    cheersReceived.forEach((cheer) => {
+      const cheerAction = getCheerAction(cheer.type)
+      items.push({
+        id: `received-${cheer.id}`,
+        icon: cheerAction.icon,
+        title: `${cheer.fromName} cheered you`,
+        detail: `${cheerAction.label} cheer received`,
+        meta: format(dateFromKey(cheer.date), 'MMM d'),
+        tone: 'celebrate',
+        sort: 130,
+        friendUid: cheer.fromUid,
+      })
+    })
+
+    cheersSent.forEach((cheer) => {
+      const friend = rankedFriends.find((candidate) => candidate.uid === cheer.toUid)
+      const cheerAction = getCheerAction(cheer.type)
+      items.push({
+        id: `sent-${cheer.id}`,
+        icon: cheerAction.icon,
+        title: `You cheered ${cheer.toName || friend?.displayName || 'a friend'}`,
+        detail: `${cheerAction.label} sent`,
+        meta: format(dateFromKey(cheer.date), 'MMM d'),
+        tone: 'fresh',
+        sort: 120,
+      })
+    })
+
+    rankedFriends.forEach((friend) => {
+      const activity = getActivityMeta(friend.lastActive)
+      const progress = Math.max(0, Math.min(100, friend.todayProgress))
+
+      if (progress >= 100) {
+        items.push({
+          id: `complete-${friend.uid}`,
+          icon: Check,
+          title: `${friend.displayName} finished today's habits`,
+          detail: `${friend.streak}d streak is still alive`,
+          meta: activity.label,
+          tone: 'celebrate',
+          sort: 110 + friend.streak / 100,
+          friendUid: friend.uid,
+        })
+      } else if (progress > 0) {
+        items.push({
+          id: `progress-${friend.uid}`,
+          icon: Activity,
+          title: `${friend.displayName} checked in`,
+          detail: `${progress}% complete today`,
+          meta: activity.label,
+          tone: 'fresh',
+          sort: 90 + progress / 100,
+          friendUid: friend.uid,
+        })
+      } else if (activity.daysAgo <= 1) {
+        items.push({
+          id: `active-${friend.uid}`,
+          icon: Sparkles,
+          title: `${friend.displayName} opened Bujo`,
+          detail: 'Their day is warming up',
+          meta: activity.label,
+          tone: 'warm',
+          sort: 70 - activity.daysAgo,
+          friendUid: friend.uid,
+        })
+      }
+
+      if (friend.streak >= 3) {
+        items.push({
+          id: `streak-${friend.uid}`,
+          icon: Flame,
+          title: `${friend.displayName} is on a ${friend.streak}d streak`,
+          detail: `${friend.habitsCount} active ${friend.habitsCount === 1 ? 'habit' : 'habits'}`,
+          meta: activity.label,
+          tone: friend.streak >= 7 ? 'celebrate' : 'warm',
+          sort: 60 + Math.min(friend.streak, 30) / 30,
+          friendUid: friend.uid,
+        })
+      }
+    })
+
+    return items.sort((first, second) => second.sort - first.sort).slice(0, 8)
+  }, [cheersReceived, cheersSent, rankedFriends])
 
   const handleCopyCode = useCallback(async () => {
     if (!friendCodeValue) return
@@ -2212,23 +2332,6 @@ function FriendsView({
     }
   }
 
-  const getActivityMeta = (lastActive: string) => {
-    const daysAgo = differenceInCalendarDays(new Date(), dateFromKey(lastActive))
-
-    if (daysAgo <= 0) return { label: 'Active today', tone: 'fresh' }
-    if (daysAgo === 1) return { label: 'Active yesterday', tone: 'warm' }
-    if (daysAgo <= 7) return { label: `${daysAgo}d ago`, tone: 'warm' }
-
-    return { label: 'Quiet lately', tone: 'quiet' }
-  }
-
-  const cheerActions: Array<{ type: CheerType; label: string; icon: LucideIcon }> = [
-    { type: 'spark', label: 'Spark', icon: Sparkles },
-    { type: 'clap', label: 'Bravo', icon: PartyPopper },
-    { type: 'fire', label: 'Fire', icon: Flame },
-    { type: 'crown', label: 'Crown', icon: Crown },
-  ]
-
   return (
     <section className="screen-stack" aria-label="Friends">
       <div className="champion-card">
@@ -2263,6 +2366,55 @@ function FriendsView({
           <strong>{friends.length}</strong>
           <span>Following</span>
         </div>
+      </div>
+
+      <div className="panel-section social-feed-panel">
+        <div className="section-heading">
+          <h2>Feed</h2>
+          <span>{friendFeed.length ? 'Live today' : 'Quiet for now'}</span>
+        </div>
+        {loading ? (
+          <p className="helper-copy">Loading friend updates...</p>
+        ) : friendFeed.length === 0 ? (
+          <div className="feed-empty">
+            <Activity size={22} />
+            <p>Friend check-ins, streaks, and cheers will show up here.</p>
+          </div>
+        ) : (
+          <div className="friend-feed">
+            {friendFeed.map((item) => {
+              const Icon = item.icon
+              const feedFriend = item.friendUid ? rankedFriends.find((friend) => friend.uid === item.friendUid) : undefined
+              const canCheer = Boolean(feedFriend && !cheersSentToday.has(feedFriend.uid) && cheeringUid !== feedFriend.uid)
+
+              return (
+                <div className={`friend-feed-item ${item.tone}`} key={item.id}>
+                  <span className="feed-icon">
+                    <Icon size={16} />
+                  </span>
+                  <div className="feed-content">
+                    <strong>{item.title}</strong>
+                    <small>{item.detail}</small>
+                  </div>
+                  <div className="feed-side">
+                    <span>{item.meta}</span>
+                    {feedFriend && (
+                      <button
+                        type="button"
+                        className="feed-cheer-button"
+                        disabled={!canCheer}
+                        onClick={() => handleSendCheer(feedFriend)}
+                        aria-label={`Cheer ${feedFriend.displayName}`}
+                      >
+                        {cheersSentToday.has(feedFriend.uid) ? <Check size={14} /> : <PartyPopper size={14} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <div className="friend-code-card">

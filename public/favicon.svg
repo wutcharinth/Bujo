@@ -1,16 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bujo">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bujo">
   <defs>
-    <linearGradient id="bg" x1="12" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2878ff" />
-      <stop offset="1" stop-color="#2aa86b" />
+    <linearGradient id="bg" x1="82" y1="32" x2="436" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2f7dff" />
+      <stop offset=".48" stop-color="#26b98b" />
+      <stop offset="1" stop-color="#f2b233" />
     </linearGradient>
+    <radialGradient id="topGlow" cx="0" cy="0" r="1" gradientTransform="translate(148 104) rotate(42) scale(260)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffaf0" stop-opacity=".78" />
+      <stop offset=".52" stop-color="#fffaf0" stop-opacity=".18" />
+      <stop offset="1" stop-color="#fffaf0" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bottomGlow" cx="0" cy="0" r="1" gradientTransform="translate(402 408) rotate(35) scale(230)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffd66b" stop-opacity=".42" />
+      <stop offset=".72" stop-color="#ffd66b" stop-opacity=".08" />
+      <stop offset="1" stop-color="#ffd66b" stop-opacity="0" />
+    </radialGradient>
+    <filter id="cardShadow" x="52" y="58" width="408" height="406" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="26" flood-color="#153c32" flood-opacity=".18" stdDeviation="22" />
+    </filter>
+    <filter id="markShadow" x="74" y="112" width="382" height="318" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="14" flood-color="#153c32" flood-opacity=".22" stdDeviation="10" />
+    </filter>
   </defs>
-  <rect width="64" height="64" rx="18" fill="url(#bg)" />
-  <!-- Leaf / sprout icon representing growth & habits -->
-  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"
-    d="M32 46 V30" />
-  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"
-    d="M32 36 C32 28 24 22 18 22 C18 30 24 36 32 36Z" />
-  <path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"
-    d="M32 30 C32 22 40 16 46 16 C46 24 40 30 32 30Z" />
+  <rect width="512" height="512" rx="116" fill="url(#bg)" />
+  <circle cx="148" cy="104" r="230" fill="url(#topGlow)" />
+  <circle cx="402" cy="408" r="210" fill="url(#bottomGlow)" />
+  <g filter="url(#cardShadow)">
+    <rect x="78" y="76" width="356" height="360" rx="98" fill="#fffaf0" opacity=".16" />
+    <rect x="80" y="78" width="352" height="356" rx="96" fill="none" stroke="#fffaf0" stroke-opacity=".24" stroke-width="3" />
+  </g>
+  <g fill="#fffaf0" opacity=".72">
+    <circle cx="144" cy="182" r="13" />
+    <circle cx="144" cy="256" r="13" opacity=".84" />
+    <circle cx="144" cy="330" r="13" opacity=".64" />
+  </g>
+  <g fill="none" stroke="#fffaf0" stroke-linecap="round" stroke-linejoin="round" filter="url(#markShadow)">
+    <path stroke-width="39" d="M260 374V244" />
+    <path stroke-width="39" d="M260 309c-52-2-88-39-96-94 58-4 100 30 96 94Z" />
+    <path stroke-width="39" d="M260 245c8-64 56-100 114-95-4 62-48 100-114 95Z" />
+    <path stroke-width="34" d="m316 336 48 48 92-122" />
+  </g>
 </svg>

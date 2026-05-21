@@ -117,9 +117,18 @@ export function useFriends(user: User | null) {
       where('followerUid', '==', user.uid),
     )
 
-    const unsubscribe = onSnapshot(followQuery, async (snapshot) => {
+    let friendUnsubscribers: Array<() => void> = []
+    const stopFriendListeners = () => {
+      friendUnsubscribers.forEach((unsubscribeFriend) => unsubscribeFriend())
+      friendUnsubscribers = []
+    }
+
+    const unsubscribe = onSnapshot(followQuery, (snapshot) => {
+      stopFriendListeners()
       setLoading(true)
-      const followedUids = snapshot.docs.map((d) => d.data().followedUid as string)
+      const followedUids = snapshot.docs
+        .map((d) => d.data().followedUid)
+        .filter((uid): uid is string => typeof uid === 'string')
 
       if (followedUids.length === 0) {
         setFriends([])
@@ -127,33 +136,74 @@ export function useFriends(user: User | null) {
         return
       }
 
-      // Fetch profiles + cheers count for all followed users
-      const profiles: FriendProfile[] = []
-      for (const uid of followedUids) {
-        try {
-          const profileSnap = await getDoc(doc(firestore, 'profiles', uid))
-          if (profileSnap.exists()) {
-            const profile = profileSnap.data() as FriendProfile
-            // Count cheers this friend received today
-            const cheerQuery = query(
-              collection(firestore, 'cheers'),
-              where('toUid', '==', uid),
-              where('date', '==', today),
-            )
-            const cheerSnap = await getDocs(cheerQuery)
-            profile.cheersToday = cheerSnap.size
-            profiles.push(profile)
-          }
-        } catch {
-          // Silently skip failed profile loads
+      const profileMap = new Map<string, FriendProfile>()
+      const cheerCountMap = new Map<string, number>()
+      const pendingProfiles = new Set(followedUids)
+
+      const publishFriends = () => {
+        const nextFriends = followedUids.flatMap((uid) => {
+          const profile = profileMap.get(uid)
+          if (!profile) return []
+
+          return [{
+            ...profile,
+            uid: profile.uid || uid,
+            cheersToday: cheerCountMap.get(uid) ?? profile.cheersToday ?? 0,
+          }]
+        })
+
+        setFriends(nextFriends)
+        if (pendingProfiles.size === 0) {
+          setLoading(false)
         }
       }
-      setFriends(profiles)
-      setLoading(false)
+
+      followedUids.forEach((uid) => {
+        const profileUnsubscribe = onSnapshot(
+          doc(firestore, 'profiles', uid),
+          (profileSnap) => {
+            pendingProfiles.delete(uid)
+
+            if (profileSnap.exists()) {
+              const profile = profileSnap.data() as FriendProfile
+              profileMap.set(uid, { ...profile, uid: profile.uid || uid })
+            } else {
+              profileMap.delete(uid)
+            }
+
+            publishFriends()
+          },
+          () => {
+            pendingProfiles.delete(uid)
+            profileMap.delete(uid)
+            publishFriends()
+          },
+        )
+
+        const cheerQuery = query(
+          collection(firestore, 'cheers'),
+          where('toUid', '==', uid),
+          where('date', '==', today),
+        )
+        const cheerUnsubscribe = onSnapshot(
+          cheerQuery,
+          (cheerSnap) => {
+            cheerCountMap.set(uid, cheerSnap.size)
+            publishFriends()
+          },
+          () => {
+            cheerCountMap.set(uid, 0)
+            publishFriends()
+          },
+        )
+
+        friendUnsubscribers.push(profileUnsubscribe, cheerUnsubscribe)
+      })
     })
 
     return () => {
       unsubscribe()
+      stopFriendListeners()
       unsubSentCheers()
       unsubReceivedCheers()
     }
