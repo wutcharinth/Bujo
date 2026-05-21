@@ -301,7 +301,6 @@ const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
   { id: 'habits', label: 'Habits', icon: Check },
   { id: 'progress', label: 'Progress', icon: BarChart3 },
   { id: 'friends', label: 'Friends', icon: Users },
-  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 const cheerActions: Array<{ type: CheerType; label: string; icon: LucideIcon }> = [
