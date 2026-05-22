@@ -43,6 +43,8 @@ export function toHabitWrite(input: NewHabitInput): NewHabitInput {
     reminderTime: input.reminderTime || '20:00',
     timerEnabled: input.timerEnabled,
     timerMinutes: Math.min(180, Math.max(1, Number(input.timerMinutes) || 1)),
+    shareLevel: input.shareLevel === 'friends' || input.shareLevel === 'circles' ? input.shareLevel : 'private',
+    sharedCircleIds: Array.isArray(input.sharedCircleIds) ? [...new Set(input.sharedCircleIds.filter(Boolean))] : [],
   }
 }
 
@@ -66,6 +68,8 @@ function mapHabit(id: string, data: Record<string, unknown>): Habit {
     lastReminderDate: typeof data.lastReminderDate === 'string' ? data.lastReminderDate : undefined,
     timerEnabled: data.timerEnabled === true,
     timerMinutes: typeof data.timerMinutes === 'number' ? data.timerMinutes : 5,
+    shareLevel: data.shareLevel === 'friends' || data.shareLevel === 'circles' ? data.shareLevel : 'private',
+    sharedCircleIds: Array.isArray(data.sharedCircleIds) ? data.sharedCircleIds.filter((id): id is string => typeof id === 'string') : [],
   }
 }
 

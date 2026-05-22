@@ -96,6 +96,8 @@ import {
   Gamepad2,
   Cat,
   Dog,
+  Inbox,
+  Send,
   Share,
   Copy,
   Users,
@@ -116,7 +118,9 @@ import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeekl
 import { calculateStreaks } from './lib/habitStats'
 import { requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
-import type { Achievement, Cheer, CheerType, DrinkCheckin, FriendProfile, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from './types'
+import { buildDashboardAnalytics, doneIdsForDate as getDoneIdsForDate } from './lib/dashboardAnalytics'
+import { getCircleMomentum } from './lib/social'
+import type { Achievement, ActivityEvent, Cheer, CheerType, Circle, DrinkCheckin, FriendProfile, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, SocialInboxItem, TimeOfDay, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'friends' | 'settings'
 type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>
@@ -337,6 +341,8 @@ const defaultHabit: NewHabitInput = {
   reminderTime: '20:00',
   timerEnabled: false,
   timerMinutes: 10,
+  shareLevel: 'private',
+  sharedCircleIds: [],
 }
 
 function habitToInput(habit: Habit | null): NewHabitInput {
@@ -355,6 +361,8 @@ function habitToInput(habit: Habit | null): NewHabitInput {
     reminderTime: habit.reminderTime,
     timerEnabled: habit.timerEnabled,
     timerMinutes: habit.timerMinutes,
+    shareLevel: habit.shareLevel ?? 'private',
+    sharedCircleIds: habit.sharedCircleIds ?? [],
   }
 }
 
@@ -392,7 +400,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   const [notice, setNotice] = useState<string | null>(null)
   const bujo = useBujoData(authState.user)
   const social = useFriends(authState.user)
-  const { syncMyProfile } = social
+  const { publishHabitActivity, syncMyProfile } = social
   const todayKey = getDateKey()
   const currentWeekKeys = useMemo(() => getWeekDateKeys(), [])
 
@@ -437,14 +445,42 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
     [bujo.activeHabits, bujo.checkins, currentWeekKeys, todayKey],
   )
   const progress = bujo.activeHabits.length ? onTrackCount / bujo.activeHabits.length : 0
+  const weeklyProgress = useMemo(
+    () => getWindowGoalStats(bujo.activeHabits, bujo.checkins, currentWeekKeys).rate,
+    [bujo.activeHabits, bujo.checkins, currentWeekKeys],
+  )
+  const sharedHabitCount = useMemo(
+    () => bujo.activeHabits.filter((habit) => habit.shareLevel !== 'private').length,
+    [bujo.activeHabits],
+  )
+  const socialInsights = useMemo(() => {
+    const circleMomentum = social.circles.length
+      ? Math.round(social.circles.reduce((sum, circle) => sum + getCircleMomentum(circle), 0) / social.circles.length)
+      : 0
+
+    return {
+      activeFriendsToday: social.friends.filter((friend) => friend.lastActive === todayKey).length,
+      circleCount: social.circles.length,
+      circleMomentum,
+      cheersReceivedToday: social.cheersReceivedToday,
+      unreadCount: social.unreadCount,
+    }
+  }, [social.cheersReceivedToday, social.circles, social.friends, social.unreadCount, todayKey])
   const greetingName = authState.user?.displayName?.split(' ')[0] ?? 'there'
 
   // Sync public profile for friends feature
   useEffect(() => {
-    if (!bujo.loading && bujo.activeHabits.length > 0) {
-      syncMyProfile(currentStreak, bujo.activeHabits.length, progress)
+    if (!bujo.loading) {
+      syncMyProfile({
+        streak: currentStreak,
+        habitsCount: bujo.activeHabits.length,
+        todayProgress: progress,
+        weeklyProgress,
+        sharedHabitCount,
+        lastMilestone: currentStreak >= 7 ? `${currentStreak} day streak` : undefined,
+      })
     }
-  }, [currentStreak, bujo.activeHabits.length, progress, bujo.loading, syncMyProfile])
+  }, [currentStreak, bujo.activeHabits.length, progress, bujo.loading, weeklyProgress, sharedHabitCount, syncMyProfile])
 
   const openCreateSheet = () => {
     setEditingHabit(null)
@@ -466,6 +502,24 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
     setIsSheetOpen(false)
     setEditingHabit(null)
   }
+
+  const handleToggleHabit = useCallback(
+    async (habit: Habit, completed: boolean) => {
+      await bujo.toggleToday(habit.id, completed)
+
+      if (completed) return
+
+      const nextCompletedCount = completedToday.has(habit.id) ? completedToday.size : completedToday.size + 1
+      await publishHabitActivity(habit, {
+        completedCount: nextCompletedCount,
+        totalHabits: bujo.activeHabits.length,
+        currentStreak,
+        todayProgress: bujo.activeHabits.length ? Math.round((nextCompletedCount / bujo.activeHabits.length) * 100) : 0,
+        weeklyProgress,
+      })
+    },
+    [bujo, completedToday, currentStreak, publishHabitActivity, weeklyProgress],
+  )
 
   return (
     <div className="app-shell">
@@ -504,7 +558,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 streak={currentStreak}
                 onTrackCount={onTrackCount}
                 onAddHabit={openCreateSheet}
-                onToggle={bujo.toggleToday}
+                onToggle={handleToggleHabit}
                 onSetMood={bujo.setMood}
                 onUpdateDrink={bujo.updateDrinkCount}
               />
@@ -524,6 +578,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 moods={bujo.moods}
                 drinks={bujo.drinks}
                 streaks={appStreaks}
+                socialInsights={socialInsights}
               />
             )}
             {activeTab === 'friends' && (
@@ -531,6 +586,10 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 myProfile={social.myProfile}
                 friends={social.friends}
                 loading={social.loading}
+                activityEvents={social.activityEvents}
+                circles={social.circles}
+                inboxItems={social.inboxItems}
+                unreadCount={social.unreadCount}
                 cheersSentToday={social.cheersSentToday}
                 cheersReceivedToday={social.cheersReceivedToday}
                 cheersSent={social.cheersSent}
@@ -538,7 +597,12 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 onFollow={social.followByCode}
                 onUnfollow={social.unfollow}
                 onSendCheer={social.sendCheer}
+                onSendNudge={social.sendNudge}
                 onTogglePrivacy={social.togglePrivacy}
+                onCreateCircle={social.createCircle}
+                onJoinCircle={social.joinCircleByCode}
+                onLeaveCircle={social.leaveCircle}
+                onMarkInboxItemRead={social.markInboxItemRead}
               />
             )}
             {activeTab === 'settings' && (
@@ -597,6 +661,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
         <HabitSheet
           key={editingHabit?.id ?? 'new-habit'}
           habit={editingHabit}
+          circles={social.circles}
           onClose={() => {
             setIsSheetOpen(false)
             setEditingHabit(null)
@@ -774,7 +839,7 @@ function TodayView({
   streak: number
   onTrackCount: number
   onAddHabit: () => void
-  onToggle: (habitId: string, completed: boolean) => Promise<void>
+  onToggle: (habit: Habit, completed: boolean) => Promise<void>
   onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => Promise<void>
   onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => Promise<void>
 }) {
@@ -875,7 +940,10 @@ function TodayView({
           onComplete={async () => {
             const completed = completedToday.has(activeTimer.habitId)
             if (!completed) {
-              await onToggle(activeTimer.habitId, false)
+              const timerHabit = activeHabits.find((habit) => habit.id === activeTimer.habitId)
+              if (timerHabit) {
+                await onToggle(timerHabit, false)
+              }
             }
             setActiveTimer(null)
           }}
@@ -903,7 +971,7 @@ function TodayView({
                 accessoryIcon={weekly ? CalendarDays : Flame}
                 onClick={async () => {
                   navigator.vibrate?.(8)
-                  await onToggle(habit.id, completed)
+                  await onToggle(habit, completed)
                 }}
                 onStartTimer={() => startTimer(habit)}
               />
@@ -1250,12 +1318,20 @@ function ProgressView({
   moods,
   drinks,
   streaks,
+  socialInsights,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
   moods: MoodCheckin[]
   drinks: DrinkCheckin[]
   streaks: { current: number; best: number; total: number }
+  socialInsights: {
+    activeFriendsToday: number
+    circleCount: number
+    circleMomentum: number
+    cheersReceivedToday: number
+    unreadCount: number
+  }
 }) {
   const currentStreak = streaks.current
   const achievements = useMemo(() => {
@@ -1264,64 +1340,58 @@ function ProgressView({
 
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
 
-  const weekKeys = getWeekDateKeys()
-  const recentKeys = getRecentDateKeys(14)
-  const rhythmKeys = getRecentDateKeys(28)
-  const currentSevenKeys = recentKeys.slice(7)
-  const previousSevenKeys = recentKeys.slice(0, 7)
+  const weekKeys = useMemo(() => getWeekDateKeys(), [])
+  const recentKeys = useMemo(() => getRecentDateKeys(14), [])
+  const rhythmKeys = useMemo(() => getRecentDateKeys(28), [])
+  const currentSevenKeys = useMemo(() => recentKeys.slice(7), [recentKeys])
+  const previousSevenKeys = useMemo(() => recentKeys.slice(0, 7), [recentKeys])
   const dateLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-  const activeHabitIds = new Set(activeHabits.map((habit) => habit.id))
-  const activeCheckins = checkins.filter((checkin) => activeHabitIds.has(checkin.habitId))
-  const doneIdsForDate = (dateKey: string) => new Set(activeCheckins.filter((checkin) => checkin.date === dateKey).map((checkin) => checkin.habitId))
-  const dayRate = (dateKey: string) => {
+  const activeHabitIds = useMemo(() => new Set(activeHabits.map((habit) => habit.id)), [activeHabits])
+  const activeCheckins = useMemo(
+    () => checkins.filter((checkin) => activeHabitIds.has(checkin.habitId)),
+    [activeHabitIds, checkins],
+  )
+  const doneIdsForDate = useCallback(
+    (dateKey: string) => getDoneIdsForDate(activeCheckins, dateKey),
+    [activeCheckins],
+  )
+  const dayRate = useCallback((dateKey: string) => {
     if (!activeHabits.length) return 0
     return Math.round((doneIdsForDate(dateKey).size / activeHabits.length) * 100)
-  }
-  const currentStats = getWindowGoalStats(activeHabits, activeCheckins, currentSevenKeys)
-  const previousStats = getWindowGoalStats(activeHabits, activeCheckins, previousSevenKeys)
-  const currentRate = currentStats.rate
-  const previousRate = previousStats.rate
-  const trend = currentRate - previousRate
-  const lastThreeKeys = recentKeys.slice(-3)
-  const lastThreeRate = getWindowGoalStats(activeHabits, activeCheckins, lastThreeKeys).rate
-  const perfectDays = currentSevenKeys.filter((dateKey) => {
-    const doneThatDay = doneIdsForDate(dateKey)
-    return activeHabits.length > 0 && activeHabits.every((habit) => doneThatDay.has(habit.id))
-  }).length
-
-  const bestDay = recentKeys
-    .map((dateKey) => ({ dateKey, rate: dayRate(dateKey) }))
-    .sort((a, b) => b.rate - a.rate)[0]
-
-  const weekdayStats = [0, 1, 2, 3, 4, 5, 6].map((index) => {
-    const label = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]
-    const matchingDays = rhythmKeys.filter((dateKey) => {
-      const date = new Date(dateKey)
-      const day = date.getDay()
-      const mondayFirstIndex = day === 0 ? 6 : day - 1
-
-      return mondayFirstIndex === index
-    })
-    const rate = getWindowGoalStats(activeHabits, activeCheckins, matchingDays).rate
-
-    return { label, rate }
-  })
-  const bestWeekday = [...weekdayStats].sort((a, b) => b.rate - a.rate)[0]
-  const habitBreakdown = activeHabits
-    .map((habit) => {
-      const habitDates = activeCheckins.filter((checkin) => checkin.habitId === habit.id).map((checkin) => checkin.date)
-      const recentDone = recentKeys.filter((dateKey) => habitDates.includes(dateKey)).length
-      const habitStats = getWindowGoalStats([habit], activeCheckins, recentKeys)
-      const rate = habitStats.rate
-      const habitStreak = calculateStreaks(habitDates).current
-
-      return { habit, recentDone, rate, habitStreak, targetTotal: habitStats.possible }
-    })
-    .sort((a, b) => b.rate - a.rate)
-  const strongestHabit = habitBreakdown[0]
-  const focusHabit = [...habitBreakdown].reverse().find((item) => item.rate < 80) ?? habitBreakdown[habitBreakdown.length - 1]
-  const dashboardMood =
-    currentRate >= 80 ? 'In flow' : currentRate >= 50 ? 'Building' : activeHabits.length ? 'Warming up' : 'Empty'
+  }, [activeHabits.length, doneIdsForDate])
+  const analytics = useMemo(
+    () =>
+      buildDashboardAnalytics({
+        activeHabits,
+        checkins,
+        moods,
+        drinks,
+        currentSevenKeys,
+        previousSevenKeys,
+        recentKeys,
+        rhythmKeys,
+      }),
+    [activeHabits, checkins, currentSevenKeys, drinks, moods, previousSevenKeys, recentKeys, rhythmKeys],
+  )
+  const {
+    currentRate,
+    trend,
+    lastThreeRate,
+    perfectDays,
+    consistencyScore,
+    bestDay,
+    bestWeekday,
+    weakestWeekday,
+    habitBreakdown,
+    strongestHabit,
+    focusHabit,
+    riskHabits,
+    dashboardMood,
+    todayFocus,
+    weeklyReview,
+    moodInsight,
+    hydrationInsight,
+  } = analytics
 
   return (
     <section className="screen-stack" aria-label="Progress">
@@ -1335,8 +1405,23 @@ function ProgressView({
 
       <div className="insight-grid">
         <Metric icon={Flame} label="Current streak" value={`${streaks.current}d`} />
-        <Metric icon={BarChart3} label="Best streak" value={`${streaks.best}d`} />
+        <Metric icon={BarChart3} label="Consistency" value={`${consistencyScore}%`} />
         <Metric icon={Check} label="Perfect days" value={`${perfectDays}/7`} />
+      </div>
+
+      <div className="coach-focus-card">
+        <div className="section-heading">
+          <h2>Today's focus</h2>
+          <span>{riskHabits.length ? `${riskHabits.length} needs care` : 'Clear'}</span>
+        </div>
+        <p>{todayFocus}</p>
+        <small>{weeklyReview}</small>
+      </div>
+
+      <div className="social-insight-grid">
+        <Metric icon={Users} label="Active friends" value={`${socialInsights.activeFriendsToday}`} />
+        <Metric icon={Target} label="Circle momentum" value={`${socialInsights.circleMomentum}%`} />
+        <Metric icon={Inbox} label="Unread" value={`${socialInsights.unreadCount}`} />
       </div>
 
       <div className="panel-section">
@@ -1451,9 +1536,42 @@ function ProgressView({
           <p>{bestWeekday?.rate ? `${bestWeekday.rate}%` : ''}</p>
         </div>
         <div className="coach-card">
-          <span>Focus</span>
-          <strong>{focusHabit?.habit.name ?? '—'}</strong>
-          <p>{focusHabit ? `${focusHabit.rate}%` : ''}</p>
+          <span>Needs attention</span>
+          <strong>{weakestWeekday?.rate ? weakestWeekday.label : focusHabit?.habit.name ?? '—'}</strong>
+          <p>{weakestWeekday?.rate ? `${weakestWeekday.rate}% rhythm` : focusHabit ? `${focusHabit.rate}%` : ''}</p>
+        </div>
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Risk radar</h2>
+          <span>{riskHabits.length ? 'Next best wins' : 'No red flags'}</span>
+        </div>
+        <div className="risk-list">
+          {riskHabits.length === 0 ? (
+            <InlineMessage message="Everything looks steady. Keep check-ins tiny and repeatable." />
+          ) : (
+            riskHabits.map(({ habit, rate, habitStreak, risk }) => (
+              <div className={`risk-row ${risk}`} key={habit.id}>
+                <HabitIdentity habit={habit} />
+                <span>{rate}%</span>
+                <small>{habitStreak}d streak</small>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Signals</h2>
+          <span>Coach notes</span>
+        </div>
+        <div className="signal-list">
+          <p>{moodInsight}</p>
+          <p>{hydrationInsight}</p>
+          <p>{socialInsights.circleCount ? `${socialInsights.circleCount} circle${socialInsights.circleCount === 1 ? '' : 's'} can help with accountability.` : 'Create a small circle when you want gentle accountability.'}</p>
+          <p>{socialInsights.cheersReceivedToday ? `${socialInsights.cheersReceivedToday} cheer${socialInsights.cheersReceivedToday === 1 ? '' : 's'} received today.` : 'Send a cheer to restart the social loop.'}</p>
         </div>
       </div>
 
@@ -1662,10 +1780,12 @@ function SettingsView({
 
 function HabitSheet({
   habit,
+  circles,
   onClose,
   onSave,
 }: {
   habit: Habit | null
+  circles: Circle[]
   onClose: () => void
   onSave: (input: NewHabitInput) => Promise<void>
 }) {
@@ -1696,6 +1816,24 @@ function HabitSheet({
       const has = current.weeklyDays.includes(day)
       const next = has ? current.weeklyDays.filter((d) => d !== day) : [...current.weeklyDays, day].sort()
       return { ...current, weeklyDays: next }
+    })
+  }
+  const setShareLevel = (shareLevel: NewHabitInput['shareLevel']) => {
+    setInput((current) => ({
+      ...current,
+      shareLevel,
+      sharedCircleIds: shareLevel === 'circles' ? current.sharedCircleIds.filter((id) => circles.some((circle) => circle.id === id)) : [],
+    }))
+  }
+  const toggleSharedCircle = (circleId: string) => {
+    setInput((current) => {
+      const hasCircle = current.sharedCircleIds.includes(circleId)
+      return {
+        ...current,
+        sharedCircleIds: hasCircle
+          ? current.sharedCircleIds.filter((id) => id !== circleId)
+          : [...current.sharedCircleIds, circleId],
+      }
     })
   }
 
@@ -1840,6 +1978,62 @@ function HabitSheet({
               </div>
             </div>
             </>
+          )}
+        </div>
+
+        <div className="share-card">
+          <div className="compact-label">
+            <span>Sharing</span>
+            <small>{input.shareLevel === 'private' ? 'Private by default' : input.shareLevel === 'friends' ? 'Friend feed' : 'Circle feed'}</small>
+          </div>
+          <div className="share-level-grid">
+            <button
+              className={input.shareLevel === 'private' ? 'active' : ''}
+              type="button"
+              onClick={() => setShareLevel('private')}
+            >
+              <Lock size={16} />
+              <span>Private</span>
+            </button>
+            <button
+              className={input.shareLevel === 'friends' ? 'active' : ''}
+              type="button"
+              onClick={() => setShareLevel('friends')}
+            >
+              <Users size={16} />
+              <span>Friends</span>
+            </button>
+            <button
+              className={input.shareLevel === 'circles' ? 'active' : ''}
+              type="button"
+              onClick={() => setShareLevel('circles')}
+            >
+              <Target size={16} />
+              <span>Circles</span>
+            </button>
+          </div>
+          <p className="helper-copy">
+            Private habits can post aggregate check-ins. Shared habits show name, icon, and color.
+          </p>
+          {input.shareLevel === 'circles' && (
+            <div className="circle-chip-list">
+              {circles.length === 0 ? (
+                <p className="helper-copy">Create or join a circle in Friends to share this habit there.</p>
+              ) : (
+                circles.map((circle) => (
+                  <button
+                    key={circle.id}
+                    className={input.sharedCircleIds.includes(circle.id) ? 'circle-chip active' : 'circle-chip'}
+                    type="button"
+                    onClick={() => toggleSharedCircle(circle.id)}
+                  >
+                    <Target size={14} />
+                    <span>{circle.name}</span>
+                    {input.sharedCircleIds.includes(circle.id) && <Check size={14} />}
+                  </button>
+                ))
+              )}
+            </div>
           )}
         </div>
 
@@ -2139,6 +2333,10 @@ function FriendsView({
   myProfile,
   friends,
   loading,
+  activityEvents,
+  circles,
+  inboxItems,
+  unreadCount,
   cheersSentToday,
   cheersReceivedToday,
   cheersSent,
@@ -2146,11 +2344,20 @@ function FriendsView({
   onFollow,
   onUnfollow,
   onSendCheer,
+  onSendNudge,
   onTogglePrivacy,
+  onCreateCircle,
+  onJoinCircle,
+  onLeaveCircle,
+  onMarkInboxItemRead,
 }: {
   myProfile: FriendProfile | null
   friends: FriendProfile[]
   loading: boolean
+  activityEvents: ActivityEvent[]
+  circles: Circle[]
+  inboxItems: SocialInboxItem[]
+  unreadCount: number
   cheersSentToday: Set<string>
   cheersReceivedToday: number
   cheersSent: Cheer[]
@@ -2158,14 +2365,27 @@ function FriendsView({
   onFollow: (code: string) => Promise<{ success: boolean; message: string }>
   onUnfollow: (uid: string) => Promise<void>
   onSendCheer: (uid: string, type?: CheerType) => Promise<void>
+  onSendNudge: (uid: string, message?: string) => Promise<void>
   onTogglePrivacy: (isPublic: boolean) => Promise<void>
+  onCreateCircle: (name: string, weeklyGoal: number) => Promise<{ success: boolean; message: string }>
+  onJoinCircle: (code: string) => Promise<{ success: boolean; message: string }>
+  onLeaveCircle: (circleId: string) => Promise<void>
+  onMarkInboxItemRead: (itemId: string) => Promise<void>
 }) {
+  const [activeSocialView, setActiveSocialView] = useState<'feed' | 'friends' | 'circles'>('feed')
   const [friendCode, setFriendCode] = useState('')
   const [followMessage, setFollowMessage] = useState<string | null>(null)
   const [followError, setFollowError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
   const [cheeringUid, setCheeringUid] = useState<string | null>(null)
+  const [nudgingUid, setNudgingUid] = useState<string | null>(null)
+  const [selectedFriend, setSelectedFriend] = useState<FriendProfile | null>(null)
+  const [circleName, setCircleName] = useState('')
+  const [circleGoal, setCircleGoal] = useState(70)
+  const [circleCode, setCircleCode] = useState('')
+  const [circleMessage, setCircleMessage] = useState<string | null>(null)
+  const [circleError, setCircleError] = useState(false)
   const rankedFriends = useMemo(
     () =>
       [...friends].sort(
@@ -2314,6 +2534,33 @@ function FriendsView({
     }
   }
 
+  const handleSendNudge = async (friend: FriendProfile) => {
+    setNudgingUid(friend.uid)
+    try {
+      await onSendNudge(friend.uid)
+    } finally {
+      setNudgingUid(null)
+    }
+  }
+
+  const handleCreateCircle = async () => {
+    if (!circleName.trim()) return
+    setCircleMessage(null)
+    const result = await onCreateCircle(circleName, circleGoal)
+    setCircleMessage(result.message)
+    setCircleError(!result.success)
+    if (result.success) setCircleName('')
+  }
+
+  const handleJoinCircle = async () => {
+    if (!circleCode.trim()) return
+    setCircleMessage(null)
+    const result = await onJoinCircle(circleCode)
+    setCircleMessage(result.message)
+    setCircleError(!result.success)
+    if (result.success) setCircleCode('')
+  }
+
   const handleShareCode = async () => {
     if (!friendCodeValue) return
     if (typeof navigator.share !== 'undefined') {
@@ -2367,17 +2614,94 @@ function FriendsView({
         </div>
       </div>
 
+      <div className="social-segmented" role="tablist" aria-label="Social sections">
+        {[
+          { id: 'feed', label: 'Feed', count: activityEvents.length + unreadCount },
+          { id: 'friends', label: 'Friends', count: friends.length },
+          { id: 'circles', label: 'Circles', count: circles.length },
+        ].map((item) => (
+          <button
+            key={item.id}
+            className={activeSocialView === item.id ? 'active' : ''}
+            type="button"
+            onClick={() => setActiveSocialView(item.id as 'feed' | 'friends' | 'circles')}
+          >
+            <span>{item.label}</span>
+            {item.count > 0 && <small>{item.count}</small>}
+          </button>
+        ))}
+      </div>
+
+      {activeSocialView === 'feed' && (
       <div className="panel-section social-feed-panel">
         <div className="section-heading">
           <h2>Feed</h2>
-          <span>{friendFeed.length ? 'Live today' : 'Quiet for now'}</span>
+          <span>{activityEvents.length || friendFeed.length ? 'Live today' : 'Quiet for now'}</span>
         </div>
+        {inboxItems.length > 0 && (
+          <div className="inbox-list">
+            {inboxItems.slice(0, 3).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={item.read ? 'inbox-item' : 'inbox-item unread'}
+                onClick={() => onMarkInboxItemRead(item.id)}
+              >
+                <Inbox size={16} />
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>{item.body}</small>
+                </span>
+                {!item.read && <i />}
+              </button>
+            ))}
+          </div>
+        )}
         {loading ? (
           <p className="helper-copy">Loading friend updates...</p>
-        ) : friendFeed.length === 0 ? (
+        ) : activityEvents.length === 0 && friendFeed.length === 0 ? (
           <div className="feed-empty">
             <Activity size={22} />
             <p>Friend check-ins, streaks, and cheers will show up here.</p>
+          </div>
+        ) : activityEvents.length > 0 ? (
+          <div className="friend-feed">
+            {activityEvents.slice(0, 12).map((event) => {
+              const Icon = event.type === 'cheer' ? PartyPopper : event.type === 'nudge' ? Send : event.type === 'milestone' ? Trophy : Activity
+              const feedFriend = event.actorUid === myProfile?.uid ? undefined : friends.find((friend) => friend.uid === event.actorUid)
+              const canCheer = Boolean(feedFriend && !cheersSentToday.has(feedFriend.uid) && cheeringUid !== feedFriend.uid)
+
+              return (
+                <div className={`friend-feed-item ${event.type === 'milestone' ? 'celebrate' : 'fresh'}`} key={event.id}>
+                  <span className={`feed-icon ${event.habitColor ?? ''}`}>
+                    {event.habitIcon ? (() => {
+                      const HabitIcon = habitIcons[event.habitIcon] ?? Activity
+                      return <HabitIcon size={16} />
+                    })() : (
+                      <Icon size={16} />
+                    )}
+                  </span>
+                  <div className="feed-content">
+                    <strong>{event.summary}</strong>
+                    <small>{event.circleName ? `${event.circleName} · ${event.detail ?? ''}` : event.detail ?? 'Small progress'}</small>
+                  </div>
+                  <div className="feed-side">
+                    <span>{format(dateFromKey(event.date), 'MMM d')}</span>
+                    {feedFriend && (
+                      <button
+                        type="button"
+                        className="feed-cheer-button"
+                        disabled={!canCheer}
+                        onClick={() => handleSendCheer(feedFriend)}
+                        aria-label={`Cheer ${feedFriend.displayName}`}
+                      >
+                        {cheersSentToday.has(feedFriend.uid) ? <Check size={14} /> : <PartyPopper size={14} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="friend-feed">
@@ -2415,7 +2739,10 @@ function FriendsView({
           </div>
         )}
       </div>
+      )}
 
+      {activeSocialView === 'friends' && (
+      <>
       <div className="friend-code-card">
         <div className="friend-code-header">
           <div>
@@ -2554,6 +2881,14 @@ function FriendsView({
                   </div>
                   <div className="friend-actions">
                     <button
+                      className="icon-button quiet unfollow-btn"
+                      type="button"
+                      onClick={() => setSelectedFriend(friend)}
+                      aria-label={`Open ${friend.displayName} profile`}
+                    >
+                      <Users size={18} />
+                    </button>
+                    <button
                       className={cheered ? 'cheer-main sent' : 'cheer-main'}
                       type="button"
                       disabled={cheered || cheeringUid === friend.uid}
@@ -2561,6 +2896,15 @@ function FriendsView({
                       aria-label={`Cheer ${friend.displayName}`}
                     >
                       <CheerIcon size={18} />
+                    </button>
+                    <button
+                      className="icon-button quiet unfollow-btn"
+                      type="button"
+                      disabled={nudgingUid === friend.uid}
+                      onClick={() => handleSendNudge(friend)}
+                      aria-label={`Nudge ${friend.displayName}`}
+                    >
+                      <Send size={18} />
                     </button>
                     <button
                       className="icon-button quiet unfollow-btn"
@@ -2613,6 +2957,165 @@ function FriendsView({
         <QrCode size={20} />
         <p className="helper-copy">Cheering is limited to once per friend each day so it stays meaningful.</p>
       </div>
+      </>
+      )}
+
+      {activeSocialView === 'circles' && (
+        <div className="social-view-stack">
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Create circle</h2>
+              <span>Small group</span>
+            </div>
+            <div className="circle-form">
+              <input
+                type="text"
+                value={circleName}
+                onChange={(event) => setCircleName(event.target.value)}
+                placeholder="Weekend reset"
+                maxLength={26}
+              />
+              <label>
+                <span>Weekly goal</span>
+                <input
+                  type="number"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={circleGoal}
+                  onChange={(event) => setCircleGoal(Math.max(10, Math.min(100, Number(event.target.value) || 70)))}
+                />
+              </label>
+              <button className="primary-action compact-action" type="button" onClick={handleCreateCircle}>
+                <Plus size={18} />
+                Create
+              </button>
+            </div>
+          </div>
+
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Join circle</h2>
+              <span>Invite code</span>
+            </div>
+            <div className="friend-input-row">
+              <input
+                type="text"
+                placeholder="Circle code"
+                value={circleCode}
+                onChange={(event) => setCircleCode(event.target.value.toUpperCase())}
+                className="friend-code-input"
+                maxLength={10}
+              />
+              <button className="primary-action follow-btn" type="button" onClick={handleJoinCircle} disabled={!circleCode.trim()}>
+                <UserPlus size={18} />
+                Join
+              </button>
+            </div>
+            {circleMessage && <p className={`follow-feedback ${circleError ? 'error' : 'success'}`}>{circleMessage}</p>}
+          </div>
+
+          <div className="circle-list">
+            {circles.length === 0 ? (
+              <div className="empty-friends">
+                <Target size={40} className="empty-friends-icon" />
+                <p>No circles yet</p>
+                <span>Create a small weekly accountability group or join one by code.</span>
+              </div>
+            ) : (
+              circles.map((circle) => {
+                const momentum = getCircleMomentum(circle)
+                return (
+                  <div className="circle-card" key={circle.id}>
+                    <div className="circle-card-head">
+                      <div>
+                        <p className="panel-kicker">Invite {circle.inviteCode}</p>
+                        <h2>{circle.name}</h2>
+                      </div>
+                      <span>{momentum}%</span>
+                    </div>
+                    <div className="friend-progress-bar" aria-label={`${circle.name} momentum ${momentum}%`}>
+                      <span style={{ width: `${momentum}%` }} />
+                    </div>
+                    <p className="helper-copy">Weekly goal {circle.weeklyGoal}% · {circle.members.length} members</p>
+                    <div className="circle-member-list">
+                      {circle.members.map((member) => (
+                        <div className="circle-member-row" key={member.uid}>
+                          <div className="friend-avatar">
+                            {member.photoURL ? <img src={member.photoURL} alt="" referrerPolicy="no-referrer" /> : <Users size={18} />}
+                          </div>
+                          <span>
+                            <strong>{member.displayName}</strong>
+                            <small>{member.role === 'owner' ? 'Owner' : `${member.todayProgress}% today`}</small>
+                          </span>
+                          <b>{member.weeklyProgress}%</b>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="circle-actions">
+                      <button className="secondary-action compact-action" type="button" onClick={() => navigator.clipboard?.writeText(circle.inviteCode)}>
+                        <Copy size={16} />
+                        Copy code
+                      </button>
+                      <button className="secondary-action compact-action danger" type="button" onClick={() => onLeaveCircle(circle.id)}>
+                        Leave
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedFriend && (
+        <div className="sheet-backdrop" role="presentation" onClick={() => setSelectedFriend(null)}>
+          <div className="sheet friend-profile-sheet" onClick={(event) => event.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-header">
+              <h2>{selectedFriend.displayName}</h2>
+              <button className="icon-button quiet" type="button" aria-label="Close" onClick={() => setSelectedFriend(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="profile-row">
+              {selectedFriend.photoURL ? <img src={selectedFriend.photoURL} alt="" referrerPolicy="no-referrer" /> : <div className="avatar-fallback">{selectedFriend.displayName.charAt(0)}</div>}
+              <div>
+                <strong>{selectedFriend.streak}d streak</strong>
+                <span>{selectedFriend.weeklyProgress}% week · {selectedFriend.sharedHabitCount} shared habits</span>
+              </div>
+            </div>
+            <div className="coach-grid">
+              <div className="coach-card">
+                <span>Today</span>
+                <strong>{selectedFriend.todayProgress}%</strong>
+                <p>{getActivityMeta(selectedFriend.lastActive).label}</p>
+              </div>
+              <div className="coach-card">
+                <span>Cheers</span>
+                <strong>{selectedFriend.cheersToday ?? 0}</strong>
+                <p>today</p>
+              </div>
+              <div className="coach-card">
+                <span>Milestone</span>
+                <strong>{selectedFriend.lastMilestone ?? '—'}</strong>
+                <p>{selectedFriend.habitsCount} habits</p>
+              </div>
+            </div>
+            <div className="friend-sheet-actions">
+              <button className="primary-action" type="button" onClick={() => handleSendCheer(selectedFriend)}>
+                <PartyPopper size={18} />
+                Cheer
+              </button>
+              <button className="secondary-action" type="button" onClick={() => handleSendNudge(selectedFriend)}>
+                <Send size={18} />
+                Nudge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

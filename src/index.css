@@ -898,6 +898,78 @@ main {
   font-weight: 560;
 }
 
+.coach-focus-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--theme-color) 24%, var(--line));
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--theme-color) 10%, transparent), transparent),
+    var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.coach-focus-card p,
+.coach-focus-card small {
+  margin: 0;
+}
+
+.coach-focus-card p {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 760;
+}
+
+.coach-focus-card small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.social-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.risk-list,
+.signal-list {
+  display: grid;
+  gap: 8px;
+}
+
+.risk-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-muted);
+}
+
+.risk-row > span {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 880;
+}
+
+.risk-row small,
+.signal-list p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 680;
+}
+
+.risk-row.at-risk {
+  border-color: color-mix(in srgb, var(--coral) 42%, var(--line));
+}
+
+.risk-row.watch {
+  border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
+}
+
 .activity-calendar {
   display: grid;
   gap: 12px;
@@ -1444,6 +1516,49 @@ main {
   border: 0;
   color: var(--text);
   background: transparent;
+}
+
+.share-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-muted);
+}
+
+.share-level-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.share-level-grid button,
+.circle-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--surface);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.share-level-grid button.active,
+.circle-chip.active {
+  border-color: var(--theme-color);
+  color: var(--theme-color);
+  background: color-mix(in srgb, var(--theme-color) 12%, transparent);
+}
+
+.circle-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .helper-copy {
@@ -2523,6 +2638,112 @@ main {
    FRIENDS TAB STYLES
    ========================================================================== */
 
+.social-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.social-segmented button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 840;
+  cursor: pointer;
+}
+
+.social-segmented button.active {
+  color: var(--text);
+  background: var(--surface-strong);
+}
+
+.social-segmented small {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: var(--primary-text);
+  background: var(--primary-bg);
+  font-size: 11px;
+}
+
+.social-view-stack,
+.inbox-list,
+.circle-list,
+.circle-member-list {
+  display: grid;
+  gap: 10px;
+}
+
+.inbox-list {
+  margin-bottom: 10px;
+}
+
+.inbox-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  width: 100%;
+  min-height: 52px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--text);
+  background: var(--surface-muted);
+  text-align: left;
+}
+
+.inbox-item svg {
+  color: var(--theme-color);
+}
+
+.inbox-item span,
+.inbox-item strong,
+.inbox-item small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-item strong {
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.inbox-item small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.inbox-item i {
+  width: 9px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--theme-color);
+}
+
+.inbox-item.unread {
+  border-color: color-mix(in srgb, var(--theme-color) 34%, var(--line));
+  background: color-mix(in srgb, var(--theme-color) 10%, var(--surface));
+}
+
 .friend-code-card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2599,6 +2820,120 @@ main {
   text-transform: none;
   font-weight: 600;
   color: var(--muted);
+}
+
+.circle-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.circle-form input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  background: var(--surface);
+  padding: 0 12px;
+  font-weight: 760;
+}
+
+.circle-form label {
+  display: grid;
+  gap: 4px;
+}
+
+.circle-form label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.circle-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.circle-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.circle-card-head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+}
+
+.circle-card-head > span {
+  display: grid;
+  place-items: center;
+  min-width: 54px;
+  height: 38px;
+  border-radius: 999px;
+  color: var(--primary-text);
+  background: var(--primary-bg);
+  font-weight: 900;
+}
+
+.circle-member-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 15px;
+  background: var(--surface-muted);
+}
+
+.circle-member-row .friend-avatar {
+  width: 38px;
+  height: 38px;
+}
+
+.circle-member-row span {
+  min-width: 0;
+}
+
+.circle-member-row strong,
+.circle-member-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.circle-member-row strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.circle-member-row small,
+.circle-member-row b {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.circle-actions,
+.friend-sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.friend-profile-sheet {
+  gap: 14px;
 }
 
 .follow-btn {
@@ -3223,6 +3558,10 @@ main {
 }
 
 @media (max-width: 420px) {
+  .circle-form {
+    grid-template-columns: 1fr;
+  }
+
   .leaderboard-row {
     grid-template-columns: 24px 40px minmax(0, 1fr);
   }

@@ -18,6 +18,8 @@ describe('habit write payloads', () => {
       lastReminderDate: undefined,
       timerEnabled: true,
       timerMinutes: 20,
+      shareLevel: 'friends',
+      sharedCircleIds: ['circle-1', 'circle-1'],
     } satisfies Habit
 
     const payload = toHabitWrite(editedHabit as NewHabitInput)
@@ -33,6 +35,8 @@ describe('habit write payloads', () => {
       reminderTime: '21:00',
       timerEnabled: true,
       timerMinutes: 20,
+      shareLevel: 'friends',
+      sharedCircleIds: ['circle-1'],
     })
     expect(Object.hasOwn(payload, 'id')).toBe(false)
     expect(Object.hasOwn(payload, 'active')).toBe(false)
@@ -52,6 +56,8 @@ describe('habit write payloads', () => {
         reminderTime: '',
         timerEnabled: true,
         timerMinutes: Number.NaN,
+        shareLevel: 'private',
+        sharedCircleIds: [],
       }),
     ).toMatchObject({
       reminderTime: '20:00',

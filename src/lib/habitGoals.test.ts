@@ -15,6 +15,8 @@ const baseHabit: Habit = {
   reminderTime: '20:00',
   timerEnabled: false,
   timerMinutes: 10,
+  shareLevel: 'private',
+  sharedCircleIds: [],
 }
 
 describe('habit goals', () => {

@@ -14,6 +14,7 @@ export type HabitIcon =
   | 'sparkles' | 'star' | 'zap' | 'flag' | 'award' | 'smile' | 'gift' | 'trophy' | 'gamepad' | 'cat' | 'dog'
 
 export type HabitFrequency = 'daily' | 'weekly'
+export type HabitShareLevel = 'private' | 'friends' | 'circles'
 
 /** 0 = Monday, 1 = Tuesday, … 6 = Sunday (matches the app's Monday-start week). */
 export type WeekDay = 0 | 1 | 2 | 3 | 4 | 5 | 6
@@ -34,6 +35,8 @@ export interface Habit {
   lastReminderDate?: string
   timerEnabled: boolean
   timerMinutes: number
+  shareLevel: HabitShareLevel
+  sharedCircleIds: string[]
 }
 
 export interface Checkin {
@@ -83,6 +86,8 @@ export interface NewHabitInput {
   reminderTime: string
   timerEnabled: boolean
   timerMinutes: number
+  shareLevel: HabitShareLevel
+  sharedCircleIds: string[]
 }
 
 export interface Achievement {
@@ -104,9 +109,13 @@ export interface FriendProfile {
   streak: number
   habitsCount: number
   todayProgress: number
+  weeklyProgress: number
+  sharedHabitCount: number
+  lastMilestone?: string
   lastActive: string
   cheersToday?: number
   isPublic?: boolean
+  circleIds?: string[]
 }
 
 export type CheerType = 'spark' | 'clap' | 'fire' | 'crown'
@@ -119,5 +128,91 @@ export interface Cheer {
   toName?: string
   type: CheerType
   date: string
+  createdAt?: unknown
+}
+
+export type ActivityEventType = 'checkin' | 'milestone' | 'streak' | 'cheer' | 'nudge' | 'circle-progress'
+export type ActivityVisibility = 'self' | 'friends' | 'circles'
+
+export interface ActivityEvent {
+  id: string
+  type: ActivityEventType
+  actorUid: string
+  actorName: string
+  actorPhotoURL?: string
+  targetUid?: string
+  circleId?: string
+  circleName?: string
+  habitId?: string
+  habitName?: string
+  habitIcon?: HabitIcon
+  habitColor?: HabitColor
+  visibility: ActivityVisibility
+  viewerUids: string[]
+  circleMemberUids?: string[]
+  date: string
+  summary: string
+  detail?: string
+  createdAtMs: number
+  createdAt?: unknown
+}
+
+export interface CircleMember {
+  id: string
+  uid: string
+  displayName: string
+  photoURL: string
+  role: 'owner' | 'member'
+  weeklyProgress: number
+  todayProgress: number
+  joinedAt?: unknown
+  updatedAt?: unknown
+}
+
+export interface Circle {
+  id: string
+  name: string
+  inviteCode: string
+  ownerUid: string
+  memberUids: string[]
+  weeklyGoal: number
+  members: CircleMember[]
+  createdAt?: unknown
+  updatedAt?: unknown
+}
+
+export interface CircleInvite {
+  id: string
+  code: string
+  circleId: string
+  circleName: string
+  ownerUid: string
+  active: boolean
+  createdAt?: unknown
+}
+
+export interface SocialInboxItem {
+  id: string
+  ownerUid: string
+  actorUid: string
+  actorName: string
+  type: 'cheer' | 'nudge' | 'circle-invite' | 'weekly-summary'
+  title: string
+  body: string
+  read: boolean
+  createdAtMs: number
+  createdAt?: unknown
+}
+
+export interface Nudge {
+  id: string
+  fromUid: string
+  toUid: string
+  fromName: string
+  toName?: string
+  message: string
+  type: 'gentle' | 'streak' | 'circle'
+  date: string
+  createdAtMs: number
   createdAt?: unknown
 }
