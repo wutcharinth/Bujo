@@ -618,6 +618,10 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 memories={bujo.memories}
                 prefs={bujo.prefs}
                 currentStreak={currentStreak}
+                circles={social.circles}
+                friends={social.friends}
+                cheersSent={social.cheersSent}
+                cheersReceived={social.cheersReceived}
               />
             )}
             {activeTab === 'friends' && (
@@ -1694,6 +1698,20 @@ const achievementIcons: Record<string, LucideIcon> = {
   Users: Users,
   PartyPopper: PartyPopper,
   Medal: Medal,
+  Heart: Heart,
+  Target: Target,
+  GraduationCap: GraduationCap,
+  Star: Star,
+  Sparkles: Sparkles,
+  Compass: Compass,
+  Send: Send,
+  Check: Check,
+  Carrot: Carrot,
+  Salad: Salad,
+  Footprints: Footprints,
+  Bike: Bike,
+  CalendarDays: CalendarDays,
+  Gift: Gift,
 }
 
 function computeAchievements(
@@ -1703,7 +1721,11 @@ function computeAchievements(
   drinks: DrinkCheckin[],
   streak: number,
   memories: DailyMemory[],
-  prefs: NotificationPrefs
+  prefs: NotificationPrefs,
+  circles: Circle[] = [],
+  _friends: FriendProfile[] = [],
+  cheersSent: Cheer[] = [],
+  cheersReceived: Cheer[] = []
 ): Achievement[] {
   // Existing stats
   const hasFirstBloom = checkins.length > 0
@@ -1798,7 +1820,229 @@ function computeAchievements(
   const hasPerfectionist = perfectionistCheck
   const hasOverachiever = maxDailyCheckins > 5
 
+  // ====== 72 NEW ACHIEVEMENTS CALCULATIONS ======
+
+  // 1. Streaks & Consistency Extension (15 achievements)
+  const hasHabitNovice = streak >= 2
+  const hasConsistencyChamp = streak >= 5
+  const hasStreakWarrior = streak >= 10
+  const hasStreakTitan = streak >= 21
+  const hasCenturyClub = streak >= 50
+  const hasStreakDeity = streak >= 75
+  const hasHabitCenturion = streak >= 100
+
+  const perfectDaysCount = Object.keys(checkinsByDate).filter((dateKey) => {
+    const dailyCount = checkinsByDate[dateKey]
+    return habits.length >= 2 && dailyCount >= habits.length
+  }).length
+  const hasPerfectThree = perfectDaysCount >= 3
+  const hasPerfectSeven = perfectDaysCount >= 7
+  const hasPerfectThirty = perfectDaysCount >= 30
+
+  const totalCheckinsCount = checkins.length
+  const hasHabitDevotee = totalCheckinsCount >= 50
+  const hasHabitCrusader = totalCheckinsCount >= 100
+  const hasHabitChampion = totalCheckinsCount >= 250
+  const hasHabitLegend = totalCheckinsCount >= 500
+  const hasHabitImmortal = totalCheckinsCount >= 1000
+
+  // 2. Hydration & Beverages Extension (12 achievements)
+  const hasWaterEnthusiast = totalWater >= 50
+  const hasWaterMaster = totalWater >= 100
+  const hasWaterMonarch = totalWater >= 250
+  const hasOceanBreeze = totalWater >= 500
+
+  const sortedWaterDates = [...new Set(drinks.filter((d) => (d.water || 0) > 0).map((d) => d.date))].sort()
+  let maxWaterStreak = 0
+  let currentWaterStreak = 0
+  let prevWaterDate: Date | null = null
+  sortedWaterDates.forEach((dateStr) => {
+    const currentDate = new Date(dateStr)
+    if (!prevWaterDate) {
+      currentWaterStreak = 1
+    } else {
+      const diffTime = Math.abs(currentDate.getTime() - prevWaterDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      if (diffDays <= 1) {
+        currentWaterStreak++
+      } else {
+        currentWaterStreak = 1
+      }
+    }
+    if (currentWaterStreak > maxWaterStreak) {
+      maxWaterStreak = currentWaterStreak
+    }
+    prevWaterDate = currentDate
+  })
+  const hasHydrationDevotee = maxWaterStreak >= 7
+
+  const hasTeaTime = drinks.some((d) => (d.water || 0) > 2 && (d.softdrink || 0) === 0 && (d.coffee || 0) === 0)
+
+  const soberDaysCount = drinks.filter((d) => (d.alcohol || 0) === 0 && (d.wine || 0) === 0 && (d.water || 0) > 0).length
+  const hasCleanStart = soberDaysCount >= 5
+  const hasSoberSentry = soberDaysCount >= 15
+
+  const coffeeDaysCount = drinks.filter((d) => (d.coffee || 0) > 0).length
+  const hasCaffeineCommander = coffeeDaysCount >= 10
+  const hasCaffeineCurtail = drinks.some((d) => (d.coffee || 0) > 0 && (d.coffee || 0) <= 1)
+
+  const sodaSkippedCount = drinks.filter((d) => (d.softdrink || 0) === 0 && ((d.water || 0) > 0 || (d.coffee || 0) > 0)).length
+  const hasSodaSkeptic = sodaSkippedCount >= 10
+  const hasSodaAbolisher = sodaSkippedCount >= 30
+
+  // 3. Mood & Reflection Extension (12 achievements)
+  const hasMindfulnessBeginner = moods.length >= 5
+  const hasEmotionalMapper = moods.length >= 25
+  const hasInnerPeace = moods.length >= 50
+  const hasStoicReflector = moods.length >= 100
+
+  const hasEveningAnchor = eveningMoodsCount >= 10
+  const hasEveningGuru = eveningMoodsCount >= 30
+
+  const hasSunriseSeeker = morningMoodsCount >= 10
+  const hasSunriseExpert = morningMoodsCount >= 30
+
+  const sortedMoodDates = [...new Set(moods.filter((m) => m.value === 'good' || m.value === 'great').map((m) => m.date))].sort()
+  let maxPosStreak = 0
+  let currentPosStreak = 0
+  let prevPosDate: Date | null = null
+  sortedMoodDates.forEach((dateStr) => {
+    const currentDate = new Date(dateStr)
+    if (!prevPosDate) {
+      currentPosStreak = 1
+    } else {
+      const diffTime = Math.abs(currentDate.getTime() - prevPosDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      if (diffDays <= 1) {
+        currentPosStreak++
+      } else {
+        currentPosStreak = 1
+      }
+    }
+    if (currentPosStreak > maxPosStreak) {
+      maxPosStreak = currentPosStreak
+    }
+    prevPosDate = currentDate
+  })
+  const hasPositivityStreak = maxPosStreak >= 5
+
+  const greatMoodsCount = moods.filter((m) => m.value === 'great').length
+  const hasPositivityRadiator = greatMoodsCount >= 10
+
+  const timerCheckins = checkins.filter((c) => {
+    const h = habits.find((habit) => habit.id === c.habitId)
+    return h ? h.timerEnabled : false
+  })
+  const hasCalmArchitect = timerCheckins.length >= 10
+  const hasFocusMonk = habits.some((h) => h.timerEnabled && h.timerMinutes >= 25)
+
+  // 4. Categorized Habits Extension (13 achievements)
+  const fitnessCheckins = checkins.filter((c) => {
+    const h = habits.find((habit) => habit.id === c.habitId)
+    return h ? fitnessIcons.includes(h.icon) : false
+  })
+  const hasFitnessRecruit = fitnessCheckins.length >= 5
+  const hasFitnessVeteran = fitnessCheckins.length >= 25
+  const hasFitnessElite = fitnessCheckins.length >= 100
+
+  const dietCheckins = checkins.filter((c) => {
+    const h = habits.find((habit) => habit.id === c.habitId)
+    return h ? dietIcons.includes(h.icon) : false
+  })
+  const hasCleanEater = dietCheckins.length >= 5
+  const hasNutritionNut = dietCheckins.length >= 25
+  const hasOrganicLifestyle = dietCheckins.length >= 100
+
+  const learningCheckins = checkins.filter((c) => {
+    const h = habits.find((habit) => habit.id === c.habitId)
+    return h ? learningIcons.includes(h.icon) : false
+  })
+  const hasScholar = learningCheckins.length >= 5
+  const hasIntellectual = learningCheckins.length >= 25
+  const hasPolymath = learningCheckins.length >= 100
+
+  const hasEarlyRiser = habits.some((h) => {
+    if (!h.reminderEnabled || !h.reminderTime) return false
+    const [hour, min] = h.reminderTime.split(':').map(Number)
+    return hour < 6 || (hour === 6 && min <= 30)
+  })
+  const hasDawnPatrol = habits.some((h) => {
+    if (!h.reminderEnabled || !h.reminderTime) return false
+    const [hour, min] = h.reminderTime.split(':').map(Number)
+    return hour < 5 || (hour === 5 && min <= 30)
+  })
+  const hasMidnightMonk = habits.some((h) => {
+    if (!h.reminderEnabled || !h.reminderTime) return false
+    const [hour] = h.reminderTime.split(':').map(Number)
+    return hour >= 23
+  })
+  const hasMiddayBooster = habits.some((h) => {
+    if (!h.reminderEnabled || !h.reminderTime) return false
+    const [hour] = h.reminderTime.split(':').map(Number)
+    return hour >= 12 && hour < 14
+  })
+
+  // 5. Diary & Journals Extension (10 achievements)
+  const hasMemoryNovice = memories.length >= 5
+  const hasMemoryChronicler = memories.length >= 15
+  const hasMemoryHistorian = memories.length >= 30
+  const hasMemoryCollector = memories.length >= 75
+  const hasMemoryTitan = memories.length >= 150
+
+  const syncedMemoriesCount = memories.filter((m) =>
+    m.text.includes('#fitness') || m.text.includes('#productivity') || m.text.includes('vlog') || m.text.includes('routine') || m.text.includes('Bujo')
+  ).length
+  const hasUnlockedMemories = syncedMemoriesCount >= 3
+  const hasSocialSynchronizer = syncedMemoriesCount >= 10
+
+  const hasDetailedDiarist = memories.some((m) => m.text.length >= 200)
+  const hasConciseChronicler = memories.some((m) => m.text.length > 0 && m.text.length <= 40)
+
+  const sortedMemoryDates = [...new Set(memories.map((m) => m.date))].sort()
+  let maxMemStreak = 0
+  let currentMemStreak = 0
+  let prevMemDate: Date | null = null
+  sortedMemoryDates.forEach((dateStr) => {
+    const currentDate = new Date(dateStr)
+    if (!prevMemDate) {
+      currentMemStreak = 1
+    } else {
+      const diffTime = Math.abs(currentDate.getTime() - prevMemDate.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      if (diffDays <= 1) {
+        currentMemStreak++
+      } else {
+        currentMemStreak = 1
+      }
+    }
+    if (currentMemStreak > maxMemStreak) {
+      maxMemStreak = currentMemStreak
+    }
+    prevMemDate = currentDate
+  })
+  const hasWeeklyDiaryStreak = maxMemStreak >= 7
+
+  // 6. Social & Circles Extension (10 achievements)
+  const hasCirclePioneer = circles.length >= 1
+  const hasCircleLeader = circles.length > 0
+  const hasCircleZealot = circles.length >= 3
+
+  const totalCheersSent = cheersSent.length
+  const hasCheerGiver = totalCheersSent >= 5
+  const hasCheerChampion = totalCheersSent >= 25
+  const hasCheerLegend = totalCheersSent >= 100
+
+  const totalCheersReceived = cheersReceived.length
+  const hasEncouragementMagnet = totalCheersReceived >= 5
+  const hasEncouragementCelebrity = totalCheersReceived >= 25
+
+  const hasFriendlyNudge = totalCheersSent >= 1
+  const hasNudgeMaster = totalCheersSent >= 8
+
   return [
+    // ----------------------------------------------------
+    // ORIGINAL 28 ACHIEVEMENTS
+    // ----------------------------------------------------
     {
       id: 'first-bloom',
       title: 'First Bloom',
@@ -1859,7 +2103,6 @@ function computeAchievements(
       progressText: hasAllRounder ? 'Unlocked' : `${maxDailyCheckins}/3 habits`,
       sharingText: `🏆 All-Rounder Unlocked! Crushed it today by completing 3+ habits in a single day on Bujo! Hitting high gear! 🌟`,
     },
-    // New Streak & Habit Achievements
     {
       id: 'habit-starter',
       title: 'Habit Starter',
@@ -1910,7 +2153,6 @@ function computeAchievements(
       progressText: hasWeekendWarrior ? 'Unlocked' : '0/1 weekend',
       sharingText: '🛡️ Weekend Warrior Unlocked! Kept my streak going through the weekend on Bujo! Saturday and Sunday checked! 🏃‍♂️💨',
     },
-    // New Hydration & Drink Achievements
     {
       id: 'water-warrior',
       title: 'Water Warrior',
@@ -1951,7 +2193,6 @@ function computeAchievements(
       progressText: hasSoberDay ? 'Unlocked' : '0/1 day',
       sharingText: '🍃 Clean Day Unlocked! Logged zero alcohol or wine today, keeping my body fresh and clean on Bujo! 🌟',
     },
-    // New Mood & Mindfulness Achievements
     {
       id: 'morning-person',
       title: 'Morning Person',
@@ -1992,7 +2233,6 @@ function computeAchievements(
       progressText: hasCalmCentered ? 'Unlocked' : '0/1 timer',
       sharingText: '🧘‍♂️ Calm & Centered Unlocked! Set up a custom 15+ min focused habit timer on Bujo to block out distractions! ⏱️',
     },
-    // New Category Habits Achievements
     {
       id: 'fitness-enthusiast',
       title: 'Fitness Enthusiast',
@@ -2043,7 +2283,6 @@ function computeAchievements(
       progressText: hasNightOwl ? 'Unlocked' : '0/1 reminder',
       sharingText: '🦉 Night Owl Unlocked! Keeping my night routines locked in with a custom Bujo habit reminder set after 9:30 PM! 🌙',
     },
-    // New Social & Diary Achievements
     {
       id: 'memory-maker',
       title: 'Memory Maker',
@@ -2083,6 +2322,742 @@ function computeAchievements(
       unlocked: hasOverachiever,
       progressText: hasOverachiever ? 'Unlocked' : `${maxDailyCheckins}/6 habits`,
       sharingText: '🎉 Overachiever Unlocked! Crushed 6+ habits in a single day on Bujo! Pushing my limits and scaling new heights! 🚀✨',
+    },
+
+    // ----------------------------------------------------
+    // ====== 72 NEW ACHIEVEMENTS ======
+    // ----------------------------------------------------
+
+    // CATEGORY 1: Streaks & Consistency (15 achievements)
+    {
+      id: 'habit-novice',
+      title: 'Habit Novice',
+      description: 'Maintained a consistent habit completion streak for 2 consecutive days.',
+      icon: 'Flame',
+      color: 'linear-gradient(135deg, #f0932b, #ff7979)',
+      unlocked: hasHabitNovice,
+      progressText: hasHabitNovice ? 'Unlocked' : `${streak}/2 days`,
+      sharingText: '🔥 Habit Novice Unlocked! Just completed my habits 2 days in a row on Bujo! Small steps make huge strides! 👣🌱',
+    },
+    {
+      id: 'consistency-champ',
+      title: 'Consistency Champ',
+      description: 'Maintained a consistent habit completion streak for 5 consecutive days.',
+      icon: 'Zap',
+      color: 'linear-gradient(135deg, #f9ca24, #f0932b)',
+      unlocked: hasConsistencyChamp,
+      progressText: hasConsistencyChamp ? 'Unlocked' : `${streak}/5 days`,
+      sharingText: '⚡ Consistency Champ Unlocked! Hit a solid 5-day habit streak on Bujo! Moving into high gear! 🚀🔥',
+    },
+    {
+      id: 'streak-warrior',
+      title: 'Streak Warrior',
+      description: 'Maintained a consistent habit completion streak for 10 consecutive days.',
+      icon: 'Flame',
+      color: 'linear-gradient(135deg, #eb4d4b, #ff7675)',
+      unlocked: hasStreakWarrior,
+      progressText: hasStreakWarrior ? 'Unlocked' : `${streak}/10 days`,
+      sharingText: '🛡️ Streak Warrior Unlocked! Pushing boundaries with a 10-day consecutive habit streak on Bujo! Unstoppable force! 💪🔥',
+    },
+    {
+      id: 'streak-titan',
+      title: 'Streak Titan',
+      description: 'Maintained a consistent habit completion streak for 21 consecutive days.',
+      icon: 'Award',
+      color: 'linear-gradient(135deg, #6c5ce7, #a29bfe)',
+      unlocked: hasStreakTitan,
+      progressText: hasStreakTitan ? 'Unlocked' : `${streak}/21 days`,
+      sharingText: '💥 Streak Titan Unlocked! 21 consecutive days of crushed habits on Bujo! Consistency is second nature now! 🧠🏋️‍♂️',
+    },
+    {
+      id: 'century-club',
+      title: 'Century Club',
+      description: 'Maintained a consistent habit completion streak for 50 consecutive days.',
+      icon: 'Medal',
+      color: 'linear-gradient(135deg, #ffeaa7, #fdcb6e)',
+      unlocked: hasCenturyClub,
+      progressText: hasCenturyClub ? 'Unlocked' : `${streak}/50 days`,
+      sharingText: '🏅 Century Club Unlocked! Crushed 50 consecutive days of habits on Bujo! Scaling absolute zen heights! 🏆🧘‍♂️',
+    },
+    {
+      id: 'streak-deity',
+      title: 'Streak Deity',
+      description: 'Maintained a consistent habit completion streak for 75 consecutive days.',
+      icon: 'Crown',
+      color: 'linear-gradient(135deg, #0984e3, #74b9ff)',
+      unlocked: hasStreakDeity,
+      progressText: hasStreakDeity ? 'Unlocked' : `${streak}/75 days`,
+      sharingText: '👑 Streak Deity Unlocked! Unbelievable 75 consecutive habit days logged on Bujo! Living in absolute alignment! 🌟✨',
+    },
+    {
+      id: 'habit-centurion',
+      title: 'Habit Centurion',
+      description: 'Maintained a consistent habit completion streak for 100 consecutive days.',
+      icon: 'Crown',
+      color: 'linear-gradient(135deg, #2d3436, #636e72)',
+      unlocked: hasHabitCenturion,
+      progressText: hasHabitCenturion ? 'Unlocked' : `${streak}/100 days`,
+      sharingText: '👑 Habit Centurion Unlocked! Historic 100-day consecutive habit streak on Bujo! Absolute master of life! 🏆🛡️',
+    },
+    {
+      id: 'perfect-three',
+      title: 'Perfect Three',
+      description: 'Logged a perfect 100% success rate on all active habits on at least 3 separate days.',
+      icon: 'Medal',
+      color: 'linear-gradient(135deg, #00cec9, #81ecec)',
+      unlocked: hasPerfectThree,
+      progressText: hasPerfectThree ? 'Unlocked' : `${perfectDaysCount}/3 days`,
+      sharingText: '🏅 Perfect Three Unlocked! Crushed all active habits perfectly on 3 separate days on Bujo! Consistency is key! 🎯🌟',
+    },
+    {
+      id: 'perfect-seven',
+      title: 'Perfect Seven',
+      description: 'Logged a perfect 100% success rate on all active habits on at least 7 separate days.',
+      icon: 'Medal',
+      color: 'linear-gradient(135deg, #00b894, #55efc4)',
+      unlocked: hasPerfectSeven,
+      progressText: hasPerfectSeven ? 'Unlocked' : `${perfectDaysCount}/7 days`,
+      sharingText: '🏅 Perfect Seven Unlocked! 7 perfect daily sheets checkins on Bujo! Aligning actions with core vision! 🌱💎',
+    },
+    {
+      id: 'perfect-thirty',
+      title: 'Perfect Thirty',
+      description: 'Logged a perfect 100% success rate on all active habits on at least 30 separate days.',
+      icon: 'Crown',
+      color: 'linear-gradient(135deg, #d63031, #ff7675)',
+      unlocked: hasPerfectThirty,
+      progressText: hasPerfectThirty ? 'Unlocked' : `${perfectDaysCount}/30 days`,
+      sharingText: '👑 Perfect Thirty Unlocked! 30 perfect 100% days checked on Bujo! Transforming dreams into tiny repeatable actions! 🚀🏆',
+    },
+    {
+      id: 'habit-devotee',
+      title: 'Habit Devotee',
+      description: 'Logged a total of 50 check-ins across your Bujo habit history.',
+      icon: 'Check',
+      color: 'linear-gradient(135deg, #6c5ce7, #00cec9)',
+      unlocked: hasHabitDevotee,
+      progressText: hasHabitDevotee ? 'Unlocked' : `${totalCheckinsCount}/50 checks`,
+      sharingText: '🌱 Habit Devotee Unlocked! Registered 50 total check-ins on Bujo! Planting seeds for major life changes! 🌿💪',
+    },
+    {
+      id: 'habit-crusader',
+      title: 'Habit Crusader',
+      description: 'Logged a total of 100 check-ins across your Bujo habit history.',
+      icon: 'Check',
+      color: 'linear-gradient(135deg, #e17055, #ffeaa7)',
+      unlocked: hasHabitCrusader,
+      progressText: hasHabitCrusader ? 'Unlocked' : `${totalCheckinsCount}/100 checks`,
+      sharingText: '🛡️ Habit Crusader Unlocked! Registered 100 total habit check-ins on Bujo! Carving out a new active lifestyle! ⏱️🏋️‍♂️',
+    },
+    {
+      id: 'habit-champion',
+      title: 'Habit Champion',
+      description: 'Logged a total of 250 check-ins across your Bujo habit history.',
+      icon: 'Target',
+      color: 'linear-gradient(135deg, #ff7675, #a29bfe)',
+      unlocked: hasHabitChampion,
+      progressText: hasHabitChampion ? 'Unlocked' : `${totalCheckinsCount}/250 checks`,
+      sharingText: '🎯 Habit Champion Unlocked! Reached a massive 250 total habit check-ins on Bujo! Absolute focus and execution! 🏆🌟',
+    },
+    {
+      id: 'habit-legend',
+      title: 'Habit Legend',
+      description: 'Logged a total of 500 check-ins across your Bujo habit history.',
+      icon: 'Trophy',
+      color: 'linear-gradient(135deg, #fdcb6e, #ffeaa7)',
+      unlocked: hasHabitLegend,
+      progressText: hasHabitLegend ? 'Unlocked' : `${totalCheckinsCount}/500 checks`,
+      sharingText: '🏆 Habit Legend Unlocked! Crushed 500 total check-ins across my history on Bujo! Transforming routines into art! 🎨📖',
+    },
+    {
+      id: 'habit-immortal',
+      title: 'Habit Immortal',
+      description: 'Logged a total of 1000 check-ins across your Bujo habit history.',
+      icon: 'Sparkles',
+      color: 'linear-gradient(135deg, #0984e3, #2d3436)',
+      unlocked: hasHabitImmortal,
+      progressText: hasHabitImmortal ? 'Unlocked' : `${totalCheckinsCount}/1000 checks`,
+      sharingText: '✨ Habit Immortal Unlocked! Reached an astronomical 1000 total habit check-ins on Bujo! Unrivaled discipline! 👑🛡️',
+    },
+
+    // CATEGORY 2: Hydration & Beverages Expansion (12 achievements)
+    {
+      id: 'water-enthusiast',
+      title: 'Water Enthusiast',
+      description: 'Logged a total of 50 cups of water across history to stay clear and focused.',
+      icon: 'Droplets',
+      color: 'linear-gradient(135deg, #74b9ff, #0984e3)',
+      unlocked: hasWaterEnthusiast,
+      progressText: hasWaterEnthusiast ? 'Unlocked' : `${totalWater}/50 cups`,
+      sharingText: '💦 Water Enthusiast Unlocked! Logged 50+ total cups of clean water on Bujo! Staying hydrated and energized! 🥤',
+    },
+    {
+      id: 'water-master',
+      title: 'Water Master',
+      description: 'Logged a total of 100 cups of water across history to detoxify your system.',
+      icon: 'Droplets',
+      color: 'linear-gradient(135deg, #00cec9, #0984e3)',
+      unlocked: hasWaterMaster,
+      progressText: hasWaterMaster ? 'Unlocked' : `${totalWater}/100 cups`,
+      sharingText: '💦 Water Master Unlocked! Logged a massive 100 total cups of water on Bujo! Hydrating my mind and body! 🐳💧',
+    },
+    {
+      id: 'water-monarch',
+      title: 'Water Monarch',
+      description: 'Logged a total of 250 cups of water across history to reach legendary hydration.',
+      icon: 'GlassWater',
+      color: 'linear-gradient(135deg, #00cec9, #6c5ce7)',
+      unlocked: hasWaterMonarch,
+      progressText: hasWaterMonarch ? 'Unlocked' : `${totalWater}/250 cups`,
+      sharingText: '👑 Water Monarch Unlocked! 250 total cups of water logged on Bujo! Staying perfectly hydrated all the way! 🌊🥤',
+    },
+    {
+      id: 'ocean-breeze',
+      title: 'Ocean Breeze',
+      description: 'Logged a total of 500 cups of water across history, maintaining pure cell hydration.',
+      icon: 'Trophy',
+      color: 'linear-gradient(135deg, #74b9ff, #2d3436)',
+      unlocked: hasOceanBreeze,
+      progressText: hasOceanBreeze ? 'Unlocked' : `${totalWater}/500 cups`,
+      sharingText: '🌊 Ocean Breeze Unlocked! Historic 500 total cups of water logged on Bujo! Cells are fully alive and hydrated! 🐬💦',
+    },
+    {
+      id: 'hydration-devotee',
+      title: 'Hydration Devotee',
+      description: 'Logged at least one cup of water for 7 consecutive tracked days.',
+      icon: 'Droplets',
+      color: 'linear-gradient(135deg, #00cec9, #ffeaa7)',
+      unlocked: hasHydrationDevotee,
+      progressText: hasHydrationDevotee ? 'Unlocked' : '0/7 days',
+      sharingText: '💧 Hydration Devotee Unlocked! Drank water consistently for 7 days in a row on Bujo! Healthy skin and body! 🍃🥤',
+    },
+    {
+      id: 'tea-time',
+      title: 'Tea Time',
+      description: 'Skipped coffee and soft drinks completely while logging water on a tracked day.',
+      icon: 'Leaf',
+      color: 'linear-gradient(135deg, #55efc4, #00b894)',
+      unlocked: hasTeaTime,
+      progressText: hasTeaTime ? 'Unlocked' : '0/1 day',
+      sharingText: '🍵 Tea Time Unlocked! Successfully skipped artificial sodas and coffees entirely today on Bujo! Pure hydration! 🍃',
+    },
+    {
+      id: 'clean-start',
+      title: 'Clean Start',
+      description: 'Maintained 5 tracked days without logging any wine or alcohol beverages.',
+      icon: 'Heart',
+      color: 'linear-gradient(135deg, #ff7675, #ff7979)',
+      unlocked: hasCleanStart,
+      progressText: hasCleanStart ? 'Unlocked' : `${soberDaysCount}/5 days`,
+      sharingText: '❤️ Clean Start Unlocked! Logged 5 sober days with zero alcohol or wine on Bujo! Keeping my health locked in! 🌟🛌',
+    },
+    {
+      id: 'sober-sentry',
+      title: 'Sober Sentry',
+      description: 'Maintained 15 tracked days without logging any wine or alcohol beverages.',
+      icon: 'Shield',
+      color: 'linear-gradient(135deg, #fd79a8, #e84393)',
+      unlocked: hasSoberSentry,
+      progressText: hasSoberSentry ? 'Unlocked' : `${soberDaysCount}/15 days`,
+      sharingText: '🛡️ Sober Sentry Unlocked! Sustained 15 sober days with zero alcohol logged on Bujo! Absolute self-mastery! 🛌✨',
+    },
+    {
+      id: 'caffeine-commander',
+      title: 'Caffeine Commander',
+      description: 'Logged coffee check-ins on 10 separate days to fuel your productiveness.',
+      icon: 'Coffee',
+      color: 'linear-gradient(135deg, #ffeaa7, #d69d16)',
+      unlocked: hasCaffeineCommander,
+      progressText: hasCaffeineCommander ? 'Unlocked' : `${coffeeDaysCount}/10 days`,
+      sharingText: '☕ Caffeine Commander Unlocked! Logged coffee on 10 separate days on Bujo! High-octane productivity! 🚀💻',
+    },
+    {
+      id: 'caffeine-curtail',
+      title: 'Caffeine Curtail',
+      description: 'Restricted coffee intake to exactly 1 cup or less on a tracked coffee day.',
+      icon: 'Heart',
+      color: 'linear-gradient(135deg, #ff7675, #fdcb6e)',
+      unlocked: hasCaffeineCurtail,
+      progressText: hasCaffeineCurtail ? 'Unlocked' : '0/1 day',
+      sharingText: '☕ Caffeine Curtail Unlocked! Restrained my daily coffee to 1 cup or less today on Bujo to avoid jitters! 🧘‍♂️💤',
+    },
+    {
+      id: 'soda-skeptic',
+      title: 'Soda Skeptic',
+      description: 'Successfully skipped sodas entirely on 10 separate tracked days.',
+      icon: 'CupSoda',
+      color: 'linear-gradient(135deg, #fab1a0, #ff7675)',
+      unlocked: hasSodaSkeptic,
+      progressText: hasSodaSkeptic ? 'Unlocked' : `${sodaSkippedCount}/10 days`,
+      sharingText: '🍊 Soda Skeptic Unlocked! Avoided high-fructose corn syrup sodas for 10 separate days on Bujo! Healthy diet! 🥗🥤',
+    },
+    {
+      id: 'soda-abolisher',
+      title: 'Soda Abolisher',
+      description: 'Successfully skipped sodas entirely on 30 separate tracked days.',
+      icon: 'Trophy',
+      color: 'linear-gradient(135deg, #ffeaa7, #e17055)',
+      unlocked: hasSodaAbolisher,
+      progressText: hasSodaAbolisher ? 'Unlocked' : `${sodaSkippedCount}/30 days`,
+      sharingText: '🏆 Soda Abolisher Unlocked! 30 days soda-free logged on Bujo! Conquering healthy hydration habits! 🐳🍃',
+    },
+
+    // CATEGORY 3: Mood & Reflection Expansion (12 achievements)
+    {
+      id: 'mindfulness-beginner',
+      title: 'Mindfulness Beginner',
+      description: 'Logged 5 total daily mood check-ins to start charting your mental wellness.',
+      icon: 'Brain',
+      color: 'linear-gradient(135deg, #a29bfe, #ffeaa7)',
+      unlocked: hasMindfulnessBeginner,
+      progressText: hasMindfulnessBeginner ? 'Unlocked' : `${moods.length}/5 logs`,
+      sharingText: '🧠 Mindfulness Beginner Unlocked! Logged 5 mood check-ins on Bujo! Starting my daily reflection journey! 🧘‍♂️✨',
+    },
+    {
+      id: 'emotional-mapper',
+      title: 'Emotional Mapper',
+      description: 'Logged 25 total mood check-ins to visually recognize emotional patterns.',
+      icon: 'Brain',
+      color: 'linear-gradient(135deg, #a29bfe, #6c5ce7)',
+      unlocked: hasEmotionalMapper,
+      progressText: hasEmotionalMapper ? 'Unlocked' : `${moods.length}/25 logs`,
+      sharingText: '🧠 Emotional Mapper Unlocked! Completed 25 mood check-ins on Bujo! Charting my emotional wellness! 📈🧘‍♂️',
+    },
+    {
+      id: 'inner-peace',
+      title: 'Inner Peace',
+      description: 'Logged 50 total mood check-ins to establish self-awareness and calmness.',
+      icon: 'Brain',
+      color: 'linear-gradient(135deg, #fd79a8, #6c5ce7)',
+      unlocked: hasInnerPeace,
+      progressText: hasInnerPeace ? 'Unlocked' : `${moods.length}/50 logs`,
+      sharingText: '🧘‍♂️ Inner Peace Unlocked! Reached 50 mood check-ins on Bujo! Mindful self-reflection is a regular habit! 🌅💎',
+    },
+    {
+      id: 'stoic-reflector',
+      title: 'Stoic Reflector',
+      description: 'Logged 100 total mood check-ins, mastering the habit of mental review.',
+      icon: 'Medal',
+      color: 'linear-gradient(135deg, #2d3436, #6c5ce7)',
+      unlocked: hasStoicReflector,
+      progressText: hasStoicReflector ? 'Unlocked' : `${moods.length}/100 logs`,
+      sharingText: '🏅 Stoic Reflector Unlocked! Reached a massive 100 total mood check-ins on Bujo! Mindful, calm, and grounded! 🧠🛡️',
+    },
+    {
+      id: 'evening-anchor',
+      title: 'Evening Anchor',
+      description: 'Logged 10 evening mood reviews to reflect on your daily activities.',
+      icon: 'Moon',
+      color: 'linear-gradient(135deg, #a29bfe, #2d3436)',
+      unlocked: hasEveningAnchor,
+      progressText: hasEveningAnchor ? 'Unlocked' : `${eveningMoodsCount}/10 reviews`,
+      sharingText: '🌙 Evening Anchor Unlocked! Completed 10 nightly reviews on Bujo to reflect on my daily mood! 🛌💤',
+    },
+    {
+      id: 'evening-guru',
+      title: 'Evening Guru',
+      description: 'Logged 30 evening mood reviews, establishing a consistent wind-down ritual.',
+      icon: 'Moon',
+      color: 'linear-gradient(135deg, #6c5ce7, #2d3436)',
+      unlocked: hasEveningGuru,
+      progressText: hasEveningGuru ? 'Unlocked' : `${eveningMoodsCount}/30 reviews`,
+      sharingText: '🌙 Evening Guru Unlocked! Completed 30 tonight reviews on Bujo! Anchoring my sleep and reflecting! 🧘‍♂️💤',
+    },
+    {
+      id: 'sunrise-seeker',
+      title: 'Sunrise Seeker',
+      description: 'Logged 10 morning sleep quality check-ins to map your rest patterns.',
+      icon: 'Sun',
+      color: 'linear-gradient(135deg, #ffeaa7, #ff7675)',
+      unlocked: hasSunriseSeeker,
+      progressText: hasSunriseSeeker ? 'Unlocked' : `${morningMoodsCount}/10 logs`,
+      sharingText: '🌅 Sunrise Seeker Unlocked! Logged 10 morning sleep check-ins on Bujo! Tracking sleep for maximum wellness! 🛌🛌',
+    },
+    {
+      id: 'sunrise-expert',
+      title: 'Sunrise Expert',
+      description: 'Logged 30 morning sleep quality check-ins to optimize your energy levels.',
+      icon: 'Sun',
+      color: 'linear-gradient(135deg, #fdcb6e, #d63031)',
+      unlocked: hasSunriseExpert,
+      progressText: hasSunriseExpert ? 'Unlocked' : `${morningMoodsCount}/30 logs`,
+      sharingText: '🌅 Sunrise Expert Unlocked! Checked morning sleep 30 times on Bujo! Waking up refreshed and energized! 🛌✨',
+    },
+    {
+      id: 'positivity-streak',
+      title: 'Positivity Streak',
+      description: 'Recorded positive daily moods ("great" or "good") for 5 consecutive tracked days.',
+      icon: 'Smile',
+      color: 'linear-gradient(135deg, #ffeaa7, #55efc4)',
+      unlocked: hasPositivityStreak,
+      progressText: hasPositivityStreak ? 'Unlocked' : '0/5 days',
+      sharingText: '☀️ Positivity Streak Unlocked! Kept a positive emotional vibration for 5 tracked days straight on Bujo! Let\'s go! 😄✨',
+    },
+    {
+      id: 'positivity-radiator',
+      title: 'Positivity Radiator',
+      description: 'Recorded 10 total "great" moods to celebrate high emotional days.',
+      icon: 'Smile',
+      color: 'linear-gradient(135deg, #ffeaa7, #e84393)',
+      unlocked: hasPositivityRadiator,
+      progressText: hasPositivityRadiator ? 'Unlocked' : `${greatMoodsCount}/10 days`,
+      sharingText: '☀️ Positivity Radiator Unlocked! Logged 10 ultimate "great" days on Bujo! Overflowing with good vibes and light! 😄🌈',
+    },
+    {
+      id: 'calm-architect',
+      title: 'Calm Architect',
+      description: 'Completed 10 focus sessions using the focused habit timer.',
+      icon: 'Clock',
+      color: 'linear-gradient(135deg, #a29bfe, #00cec9)',
+      unlocked: hasCalmArchitect,
+      progressText: hasCalmArchitect ? 'Unlocked' : `${timerCheckins.length}/10 sessions`,
+      sharingText: '⏱️ Calm Architect Unlocked! Crushed 10 focused sessions with Bujo habit timer! Training my attention! 🧠🧘‍♂️',
+    },
+    {
+      id: 'focus-monk',
+      title: 'Focus Monk',
+      description: 'Set a focused habit timer to 25+ minutes to practice deep work (Pomodoro).',
+      icon: 'Timer',
+      color: 'linear-gradient(135deg, #ffeaa7, #6c5ce7)',
+      unlocked: hasFocusMonk,
+      progressText: hasFocusMonk ? 'Unlocked' : '0/1 timer',
+      sharingText: '🧘‍♂️ Focus Monk Unlocked! Created a Pomodoro focus habit set to 25+ minutes on Bujo for absolute flow! ⏱️💻',
+    },
+
+    // CATEGORY 4: Categorized Habits Expansion (13 achievements)
+    {
+      id: 'fitness-recruit',
+      title: 'Fitness Recruit',
+      description: 'Completed a workout/physical fitness-centric habit 5 times.',
+      icon: 'Dumbbell',
+      color: 'linear-gradient(135deg, #81ecec, #0984e3)',
+      unlocked: hasFitnessRecruit,
+      progressText: hasFitnessRecruit ? 'Unlocked' : `${fitnessCheckins.length}/5 completed`,
+      sharingText: '🏋️‍♂️ Fitness Recruit Unlocked! Crushed physical fitness habits 5 times on Bujo! Building strength! 💪🚴‍♂️',
+    },
+    {
+      id: 'fitness-veteran',
+      title: 'Fitness Veteran',
+      description: 'Completed a fitness-centric habit 25 times to lock in physical momentum.',
+      icon: 'Footprints',
+      color: 'linear-gradient(135deg, #55efc4, #0984e3)',
+      unlocked: hasFitnessVeteran,
+      progressText: hasFitnessVeteran ? 'Unlocked' : `${fitnessCheckins.length}/25 completed`,
+      sharingText: '🏃‍♂️ Fitness Veteran Unlocked! 25 workouts logged on Bujo! Keeping my body resilient and active! 🚴‍♂️💨',
+    },
+    {
+      id: 'fitness-elite',
+      title: 'Fitness Elite',
+      description: 'Completed a fitness-centric habit 100 times, establishing an athletic lifestyle.',
+      icon: 'Bike',
+      color: 'linear-gradient(135deg, #ffeaa7, #0984e3)',
+      unlocked: hasFitnessElite,
+      progressText: hasFitnessElite ? 'Unlocked' : `${fitnessCheckins.length}/100 completed`,
+      sharingText: '🏅 Fitness Elite Unlocked! Reached 100 physical routine checks on Bujo! Peak physical condition and discipline! 🏋️‍♂️🏆',
+    },
+    {
+      id: 'clean-eater',
+      title: 'Clean Eater',
+      description: 'Completed a diet/nutrition-centric habit 5 times.',
+      icon: 'Carrot',
+      color: 'linear-gradient(135deg, #55efc4, #ffeaa7)',
+      unlocked: hasCleanEater,
+      progressText: hasCleanEater ? 'Unlocked' : `${dietCheckins.length}/5 completed`,
+      sharingText: '🥕 Clean Eater Unlocked! Logged clean eating habits 5 times on Bujo! Feeding my body wholesome foods! 🥗🍎',
+    },
+    {
+      id: 'nutrition-nut',
+      title: 'Nutrition Nut',
+      description: 'Completed a diet/nutrition habit 25 times to cement healthy digestion.',
+      icon: 'Salad',
+      color: 'linear-gradient(135deg, #55efc4, #fdcb6e)',
+      unlocked: hasNutritionNut,
+      progressText: hasNutritionNut ? 'Unlocked' : `${dietCheckins.length}/25 completed`,
+      sharingText: '🥗 Nutrition Nut Unlocked! Crushed 25 healthy eating check-ins on Bujo! Wellness starts from within! 🥑🍎',
+    },
+    {
+      id: 'organic-lifestyle',
+      title: 'Organic Lifestyle',
+      description: 'Completed a nutrition habit 100 times, embodying natural clean eating.',
+      icon: 'Sprout',
+      color: 'linear-gradient(135deg, #55efc4, #00cec9)',
+      unlocked: hasOrganicLifestyle,
+      progressText: hasOrganicLifestyle ? 'Unlocked' : `${dietCheckins.length}/100 completed`,
+      sharingText: '🌿 Organic Lifestyle Unlocked! 100 healthy meals checked on Bujo! Pure clean living is my standard! 🥑🥗',
+    },
+    {
+      id: 'scholar',
+      title: 'Scholar',
+      description: 'Completed a learning/reading-centric habit 5 times.',
+      icon: 'BookOpen',
+      color: 'linear-gradient(135deg, #ffeaa7, #a29bfe)',
+      unlocked: hasScholar,
+      progressText: hasScholar ? 'Unlocked' : `${learningCheckins.length}/5 completed`,
+      sharingText: '📚 Scholar Unlocked! Completed reading/learning habits 5 times on Bujo! Continuous mind growth! 🎓🧠',
+    },
+    {
+      id: 'intellectual',
+      title: 'Intellectual',
+      description: 'Completed a learning habit 25 times to expand your intellectual horizon.',
+      icon: 'GraduationCap',
+      color: 'linear-gradient(135deg, #74b9ff, #6c5ce7)',
+      unlocked: hasIntellectual,
+      progressText: hasIntellectual ? 'Unlocked' : `${learningCheckins.length}/25 completed`,
+      sharingText: '🧠 Intellectual Unlocked! Logged learning habits 25 times on Bujo! Sharpening my knowledge and focus! 📚🎓',
+    },
+    {
+      id: 'polymath',
+      title: 'Polymath',
+      description: 'Completed a learning habit 100 times, mastering diverse domains of study.',
+      icon: 'Brain',
+      color: 'linear-gradient(135deg, #fd79a8, #6c5ce7)',
+      unlocked: hasPolymath,
+      progressText: hasPolymath ? 'Unlocked' : `${learningCheckins.length}/100 completed`,
+      sharingText: '🎓 Polymath Unlocked! Reached 100 daily study habit checks on Bujo! Lifetime learning and intelligence! 🧠📚',
+    },
+    {
+      id: 'early-riser',
+      title: 'Early Riser',
+      description: 'Set a habit reminder before 6:30 AM to lock in a productive morning flow.',
+      icon: 'Sun',
+      color: 'linear-gradient(135deg, #ffeaa7, #fdcb6e)',
+      unlocked: hasEarlyRiser,
+      progressText: hasEarlyRiser ? 'Unlocked' : '0/1 reminder',
+      sharingText: '🌅 Early Riser Unlocked! Custom morning routine reminder set before 6:30 AM on Bujo! Seizing the day! ⏰⏰',
+    },
+    {
+      id: 'dawn-patrol',
+      title: 'Dawn Patrol',
+      description: 'Set a habit reminder before 5:30 AM, conquering the morning before sunrise.',
+      icon: 'Compass',
+      color: 'linear-gradient(135deg, #ffeaa7, #e17055)',
+      unlocked: hasDawnPatrol,
+      progressText: hasDawnPatrol ? 'Unlocked' : '0/1 reminder',
+      sharingText: '🧭 Dawn Patrol Unlocked! Conquering my day before the sun rises with a reminder set before 5:30 AM on Bujo! ⏰🛌',
+    },
+    {
+      id: 'midnight-monk',
+      title: 'Midnight Monk',
+      description: 'Set a habit reminder after 11:00 PM (23:00) to secure late-night reflection.',
+      icon: 'Moon',
+      color: 'linear-gradient(135deg, #2d3436, #0984e3)',
+      unlocked: hasMidnightMonk,
+      progressText: hasMidnightMonk ? 'Unlocked' : '0/1 reminder',
+      sharingText: '🦉 Midnight Monk Unlocked! Late night reflection checked with a custom Bujo habit reminder set after 11:00 PM! 🌙💭',
+    },
+    {
+      id: 'midday-booster',
+      title: 'Midday Booster',
+      description: 'Set a habit reminder between 12:00 PM and 2:00 PM for afternoon refocusing.',
+      icon: 'Clock',
+      color: 'linear-gradient(135deg, #ffeaa7, #55efc4)',
+      unlocked: hasMiddayBooster,
+      progressText: hasMiddayBooster ? 'Unlocked' : '0/1 reminder',
+      sharingText: '⏱️ Midday Booster Unlocked! Keep my afternoon momentum strong with a habit reminder set between 12 and 2 PM on Bujo! 🚀',
+    },
+
+    // CATEGORY 5: Diary & Journals Expansion (10 achievements)
+    {
+      id: 'memory-novice',
+      title: 'Memory Novice',
+      description: 'Jotted down daily micro-journal highlights/memory notes on 5 separate days.',
+      icon: 'BookOpen',
+      color: 'linear-gradient(135deg, #ffeaa7, #ff7675)',
+      unlocked: hasMemoryNovice,
+      progressText: hasMemoryNovice ? 'Unlocked' : `${memories.length}/5 memories`,
+      sharingText: '📸 Memory Novice Unlocked! Saved daily memories on 5 separate days on Bujo! Keeping record of my growth! 📖✨',
+    },
+    {
+      id: 'memory-chronicler',
+      title: 'Memory Chronicler',
+      description: 'Jotted down daily micro-journal memory notes on 15 separate days.',
+      icon: 'BookOpen',
+      color: 'linear-gradient(135deg, #a29bfe, #fd79a8)',
+      unlocked: hasMemoryChronicler,
+      progressText: hasMemoryChronicler ? 'Unlocked' : `${memories.length}/15 memories`,
+      sharingText: '📖 Memory Chronicler Unlocked! Logged 15 daily highlights on Bujo! Charting my personal story and steps! 📸✨',
+    },
+    {
+      id: 'memory-historian',
+      title: 'Memory Historian',
+      description: 'Jotted down daily micro-journal memory notes on 30 separate days.',
+      icon: 'BookOpen',
+      color: 'linear-gradient(135deg, #6c5ce7, #e84393)',
+      unlocked: hasMemoryHistorian,
+      progressText: hasMemoryHistorian ? 'Unlocked' : `${memories.length}/30 memories`,
+      sharingText: '📖 Memory Historian Unlocked! Reached 30 daily journal memory entries on Bujo! Safeguarding my daily moments! 📸💎',
+    },
+    {
+      id: 'memory-collector',
+      title: 'Memory Collector',
+      description: 'Jotted down daily micro-journal memory notes on 75 separate days.',
+      icon: 'Camera',
+      color: 'linear-gradient(135deg, #00cec9, #6c5ce7)',
+      unlocked: hasMemoryCollector,
+      progressText: hasMemoryCollector ? 'Unlocked' : `${memories.length}/75 memories`,
+      sharingText: '📸 Memory Collector Unlocked! Preserved daily highlights on 75 separate days on Bujo! Growing day by day! 🌟📖',
+    },
+    {
+      id: 'memory-titan',
+      title: 'Memory Titan',
+      description: 'Jotted down daily micro-journal memory notes on 150 separate days.',
+      icon: 'Trophy',
+      color: 'linear-gradient(135deg, #ffeaa7, #2d3436)',
+      unlocked: hasMemoryTitan,
+      progressText: hasMemoryTitan ? 'Unlocked' : `${memories.length}/150 memories`,
+      sharingText: '🏆 Memory Titan Unlocked! Astronomical 150 daily memory notes recorded on Bujo! Absolute master of journaling! 📖✨',
+    },
+    {
+      id: 'unlocked-memories',
+      title: 'Unlocked Memories',
+      description: 'Connected and synced mock social posts into your daily memories at least 3 times.',
+      icon: 'Share',
+      color: 'linear-gradient(135deg, #81ecec, #6c5ce7)',
+      unlocked: hasUnlockedMemories,
+      progressText: hasUnlockedMemories ? 'Unlocked' : `${syncedMemoriesCount}/3 syncs`,
+      sharingText: '🔗 Unlocked Memories Unlocked! Synced daily social media highlights into Bujo 3 times! Unifying my diary! 📸✨',
+    },
+    {
+      id: 'social-synchronizer',
+      title: 'Social Synchronizer',
+      description: 'Connected and synced mock social posts into your daily memories at least 10 times.',
+      icon: 'Share',
+      color: 'linear-gradient(135deg, #ffeaa7, #6c5ce7)',
+      unlocked: hasSocialSynchronizer,
+      progressText: hasSocialSynchronizer ? 'Unlocked' : `${syncedMemoriesCount}/10 syncs`,
+      sharingText: '🔗 Social Synchronizer Unlocked! Completed 10 social imports into my Bujo daily highlights! Connected growth! 📖✨',
+    },
+    {
+      id: 'detailed-diarist',
+      title: 'Detailed Diarist',
+      description: 'Logged an intensive micro-journal reflection note containing 200+ characters of content.',
+      icon: 'Pencil',
+      color: 'linear-gradient(135deg, #55efc4, #00cec9)',
+      unlocked: hasDetailedDiarist,
+      progressText: hasDetailedDiarist ? 'Unlocked' : '0/1 note',
+      sharingText: '✍️ Detailed Diarist Unlocked! Wrote a detailed 200+ character daily memory on Bujo to inspect my reflections! 📖🧠',
+    },
+    {
+      id: 'concise-chronicler',
+      title: 'Concise Chronicler',
+      description: 'Logged a single short, punchy daily highlight note containing 1 to 40 characters.',
+      icon: 'Pencil',
+      color: 'linear-gradient(135deg, #ffeaa7, #eb4d4b)',
+      unlocked: hasConciseChronicler,
+      progressText: hasConciseChronicler ? 'Unlocked' : '0/1 note',
+      sharingText: '✍️ Concise Chronicler Unlocked! Logged a short, elegant and punchy daily memory highlight (under 40 chars) on Bujo! ⏱️🌱',
+    },
+    {
+      id: 'weekly-diary-streak',
+      title: 'Weekly Diary Streak',
+      description: 'Recorded a daily memory note for 7 consecutive days to capture your weeks.',
+      icon: 'CalendarDays',
+      color: 'linear-gradient(135deg, #ff7675, #6c5ce7)',
+      unlocked: hasWeeklyDiaryStreak,
+      progressText: hasWeeklyDiaryStreak ? 'Unlocked' : '0/7 days',
+      sharingText: '📅 Weekly Diary Streak Unlocked! Maintained a 7-day diary writing streak on Bujo! Capturing the beauty of my days! 📖✨',
+    },
+
+    // CATEGORY 6: Social & Circles Expansion (10 achievements)
+    {
+      id: 'circle-pioneer',
+      title: 'Circle Pioneer',
+      description: 'Joined or created at least one accountability Circle to sync with friends.',
+      icon: 'Users',
+      color: 'linear-gradient(135deg, #55efc4, #0984e3)',
+      unlocked: hasCirclePioneer,
+      progressText: hasCirclePioneer ? 'Unlocked' : '0/1 circle',
+      sharingText: '👥 Circle Pioneer Unlocked! Joined my first accountability Circle on Bujo! Growing together with support! 🚀🌱',
+    },
+    {
+      id: 'circle-leader',
+      title: 'Circle Leader',
+      description: 'Created a new custom accountability Circle to gather close companions.',
+      icon: 'Crown',
+      color: 'linear-gradient(135deg, #ffeaa7, #0984e3)',
+      unlocked: hasCircleLeader,
+      progressText: hasCircleLeader ? 'Unlocked' : '0/1 circle',
+      sharingText: '👑 Circle Leader Unlocked! Just established a new custom habit circle on Bujo! Inviting friends to grow together! 👥💪',
+    },
+    {
+      id: 'circle-zealot',
+      title: 'Circle Zealot',
+      description: 'Maintained active membership inside at least 3 separate accountability Circles.',
+      icon: 'Users',
+      color: 'linear-gradient(135deg, #e84393, #6c5ce7)',
+      unlocked: hasCircleZealot,
+      progressText: hasCircleZealot ? 'Unlocked' : `${circles.length}/3 circles`,
+      sharingText: '👥 Circle Zealot Unlocked! Actively pursuing growth across 3 separate accountability Circles on Bujo! Let\'s go! 🔥👑',
+    },
+    {
+      id: 'cheer-giver',
+      title: 'Cheer Giver',
+      description: 'Sent 5 cheers to friends or circle mates to reward their efforts.',
+      icon: 'Send',
+      color: 'linear-gradient(135deg, #ffeaa7, #e84393)',
+      unlocked: hasCheerGiver,
+      progressText: hasCheerGiver ? 'Unlocked' : `${totalCheersSent}/5 cheers`,
+      sharingText: '✨ Cheer Giver Unlocked! Sent 5 encouraging cheers to friends on Bujo! Spreading positive energy! 😄💖',
+    },
+    {
+      id: 'cheer-champion',
+      title: 'Cheer Champion',
+      description: 'Sent 25 cheers to friends or circle mates, actively celebrating their growth.',
+      icon: 'Send',
+      color: 'linear-gradient(135deg, #ff7675, #e84393)',
+      unlocked: hasCheerChampion,
+      progressText: hasCheerChampion ? 'Unlocked' : `${totalCheersSent}/25 cheers`,
+      sharingText: '💖 Cheer Champion Unlocked! Sent 25 support cheers to friends on Bujo! Uplifting others on their journey! 🚀🌟',
+    },
+    {
+      id: 'cheer-legend',
+      title: 'Cheer Legend',
+      description: 'Sent 100 cheers to friends or circle mates, fostering a massive cycle of positive energy.',
+      icon: 'PartyPopper',
+      color: 'linear-gradient(135deg, #fdcb6e, #e84393)',
+      unlocked: hasCheerLegend,
+      progressText: hasCheerLegend ? 'Unlocked' : `${totalCheersSent}/100 cheers`,
+      sharingText: '🏆 Cheer Legend Unlocked! Fostered 100 positive energy cheers to friends on Bujo! Fulfilling human accountability! 🎉💖',
+    },
+    {
+      id: 'encouragement-magnet',
+      title: 'Encouragement Magnet',
+      description: 'Received 5 cheers from friends or circle members cheering on your accomplishments.',
+      icon: 'Heart',
+      color: 'linear-gradient(135deg, #ffeaa7, #e17055)',
+      unlocked: hasEncouragementMagnet,
+      progressText: hasEncouragementMagnet ? 'Unlocked' : `${totalCheersReceived}/5 cheers`,
+      sharingText: '❤️ Encouragement Magnet Unlocked! Received 5 cheers from friends on Bujo! Feeling extremely supported! 😄💖',
+    },
+    {
+      id: 'encouragement-celebrity',
+      title: 'Encouragement Celebrity',
+      description: 'Received 25 cheers from friends or circle members, a testament to your outstanding progress.',
+      icon: 'Crown',
+      color: 'linear-gradient(135deg, #ff7675, #6c5ce7)',
+      unlocked: hasEncouragementCelebrity,
+      progressText: hasEncouragementCelebrity ? 'Unlocked' : `${totalCheersReceived}/25 cheers`,
+      sharingText: '👑 Encouragement Celebrity Unlocked! Received 25 awesome cheers from friends on Bujo! Commitment is inspiring! 🚀🔥',
+    },
+    {
+      id: 'friendly-nudge',
+      title: 'Friendly Nudge',
+      description: 'Sent at least 1 friendly nudge to an inactive friend to encourage accountability.',
+      icon: 'Send',
+      color: 'linear-gradient(135deg, #55efc4, #2d3436)',
+      unlocked: hasFriendlyNudge,
+      progressText: hasFriendlyNudge ? 'Unlocked' : '0/1 nudge',
+      sharingText: '🛡️ Friendly Nudge Unlocked! Sent a gentle accountability nudge to a friend on Bujo! Keeping each other stable! 👥⏱️',
+    },
+    {
+      id: 'nudge-master',
+      title: 'Nudge Master',
+      description: 'Sent 8 or more nudges to keep your friends and circles completely on track.',
+      icon: 'PartyPopper',
+      color: 'linear-gradient(135deg, #fdcb6e, #2d3436)',
+      unlocked: hasNudgeMaster,
+      progressText: hasNudgeMaster ? 'Unlocked' : `${totalCheersSent}/8 nudges`,
+      sharingText: '🏆 Nudge Master Unlocked! Completed 8 accountability nudges to keep my friends active on Bujo! Supporting growth! 👥🔥',
     },
   ]
 }
@@ -2395,6 +3370,10 @@ function AchievementsView({
   memories,
   prefs,
   currentStreak,
+  circles = [],
+  friends = [],
+  cheersSent = [],
+  cheersReceived = [],
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
@@ -2403,10 +3382,38 @@ function AchievementsView({
   memories: DailyMemory[]
   prefs: NotificationPrefs
   currentStreak: number
+  circles?: Circle[]
+  friends?: FriendProfile[]
+  cheersSent?: Cheer[]
+  cheersReceived?: Cheer[]
 }) {
   const achievements = useMemo(() => {
-    return computeAchievements(activeHabits, checkins, moods, drinks, currentStreak, memories, prefs)
-  }, [activeHabits, checkins, moods, drinks, currentStreak, memories, prefs])
+    return computeAchievements(
+      activeHabits,
+      checkins,
+      moods,
+      drinks,
+      currentStreak,
+      memories,
+      prefs,
+      circles,
+      friends,
+      cheersSent,
+      cheersReceived
+    )
+  }, [
+    activeHabits,
+    checkins,
+    moods,
+    drinks,
+    currentStreak,
+    memories,
+    prefs,
+    circles,
+    friends,
+    cheersSent,
+    cheersReceived,
+  ])
 
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
   const unlockedCount = achievements.filter((a) => a.unlocked).length
