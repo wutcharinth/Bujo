@@ -123,7 +123,7 @@ import { buildDashboardAnalytics, doneIdsForDate as getDoneIdsForDate } from './
 import { getCircleMomentum } from './lib/social'
 import type { Achievement, ActivityEvent, Cheer, CheerType, Circle, DailyMemory, DrinkCheckin, FriendProfile, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, SocialInboxItem, TimeOfDay, WeekDay } from './types'
 
-type TabId = 'today' | 'habits' | 'progress' | 'friends' | 'settings'
+type TabId = 'today' | 'habits' | 'progress' | 'achievements' | 'friends' | 'settings'
 type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>
 
 const habitIcons: Record<HabitIcon, LucideIcon> = {
@@ -305,6 +305,7 @@ const tabs: Array<{ id: TabId; label: string; icon: LucideIcon }> = [
   { id: 'today', label: 'Today', icon: Home },
   { id: 'habits', label: 'Habits', icon: Check },
   { id: 'progress', label: 'Progress', icon: BarChart3 },
+  { id: 'achievements', label: 'Achievements', icon: Trophy },
   { id: 'friends', label: 'Friends', icon: Users },
 ]
 
@@ -580,6 +581,8 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 onToggle={handleToggleHabit}
                 onSetMood={bujo.setMood}
                 onUpdateDrink={bujo.updateDrinkCount}
+                memories={bujo.memories}
+                onSetMemory={bujo.setMemory}
               />
             )}
             {activeTab === 'habits' && (
@@ -604,6 +607,17 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 onSetMood={(timeOfDay, value, date) => bujo.setMood(timeOfDay, value, date)}
                 onUpdateDrink={(type, delta, date) => bujo.updateDrinkCount(type, delta, date)}
                 onSetMemory={(text, date) => bujo.setMemory(text, date)}
+              />
+            )}
+            {activeTab === 'achievements' && (
+              <AchievementsView
+                activeHabits={bujo.activeHabits}
+                checkins={bujo.checkins}
+                moods={bujo.moods}
+                drinks={bujo.drinks}
+                memories={bujo.memories}
+                prefs={bujo.prefs}
+                currentStreak={currentStreak}
               />
             )}
             {activeTab === 'friends' && (
@@ -872,6 +886,8 @@ function TodayView({
   onToggle,
   onSetMood,
   onUpdateDrink,
+  memories,
+  onSetMemory,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
@@ -885,6 +901,8 @@ function TodayView({
   onToggle: (habit: Habit, completed: boolean) => Promise<void>
   onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => Promise<void>
   onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => Promise<void>
+  memories: DailyMemory[]
+  onSetMemory: (text: string) => Promise<void>
 }) {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null)
   const [showTodayShare, setShowTodayShare] = useState(false)
@@ -921,6 +939,27 @@ function TodayView({
       remainingSeconds: durationSeconds,
       isRunning: true,
     })
+  }
+
+  const todayKey = getDateKey()
+  const existingMemory = memories.find((m) => m.date === todayKey)?.text || ''
+  const [memoryText, setMemoryText] = useState(existingMemory)
+  const [saveStatus, setSaveStatus] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMemoryText(memories.find((m) => m.date === todayKey)?.text || '')
+    setSaveStatus(null)
+  }, [todayKey, memories])
+
+  const handleSaveMemory = async (text: string) => {
+    setSaveStatus('Saving...')
+    try {
+      await onSetMemory(text)
+      setSaveStatus('Saved')
+      setTimeout(() => setSaveStatus(null), 1500)
+    } catch (err) {
+      setSaveStatus('Error saving')
+    }
   }
 
   return (
@@ -962,6 +1001,55 @@ function TodayView({
 
       <MoodTracker moods={moods} onSetMood={onSetMood} />
       <DrinksTracker drinks={drinks} onUpdateDrink={onUpdateDrink} />
+
+      {/* Daily Micro-Journal Memory Note */}
+      <div className="panel-section">
+        <div className="section-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BookOpen size={18} style={{ color: 'var(--theme-color)' }} />
+            <span>Today's Memory Note</span>
+          </h2>
+          {saveStatus && (
+            <span className="save-status" style={{ fontSize: '12px', color: 'var(--theme-color)', fontWeight: 600 }}>
+              {saveStatus}
+            </span>
+          )}
+        </div>
+        <div className="memory-editor-container" style={{ position: 'relative' }}>
+          <textarea
+            className="memory-textarea"
+            value={memoryText}
+            onChange={(e) => setMemoryText(e.target.value)}
+            onBlur={() => handleSaveMemory(memoryText)}
+            placeholder="What made today special? Add a short note, highlight, or memory..."
+            maxLength={280}
+            rows={3}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '14px',
+              border: '1px solid var(--line)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              fontFamily: 'inherit',
+              fontSize: '14px',
+              resize: 'none',
+              outline: 'none',
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginTop: '4px', padding: '0 4px' }}>
+            <span>{memoryText.length}/280 characters</span>
+            <button
+              type="button"
+              className="link-button"
+              style={{ background: 'none', border: 'none', color: 'var(--theme-color)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', padding: 0 }}
+              onClick={() => handleSaveMemory(memoryText)}
+            >
+              Save Note
+            </button>
+          </div>
+        </div>
+      </div>
 
       {activeTimer && (
         <TimerPanel
@@ -2032,13 +2120,6 @@ function ProgressView({
   onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number, date: string) => Promise<void>
   onSetMemory: (text: string, date: string) => Promise<void>
 }) {
-  const currentStreak = streaks.current
-  const achievements = useMemo(() => {
-    return computeAchievements(activeHabits, checkins, moods, drinks, currentStreak, memories, prefs)
-  }, [activeHabits, checkins, moods, drinks, currentStreak, memories, prefs])
-
-  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
-
   const weekKeys = useMemo(() => getWeekDateKeys(), [])
   const recentKeys = useMemo(() => getRecentDateKeys(14), [])
   const rhythmKeys = useMemo(() => getRecentDateKeys(28), [])
@@ -2123,33 +2204,7 @@ function ProgressView({
         <Metric icon={Inbox} label="Unread" value={`${socialInsights.unreadCount}`} />
       </div>
 
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Achievements</h2>
-          <span>{achievements.filter((a) => a.unlocked).length}/{achievements.length} unlocked</span>
-        </div>
-        <div className="achievements-shelf">
-          {achievements.map((achievement) => {
-            const Icon = achievementIcons[achievement.icon]
-            return (
-              <button
-                key={achievement.id}
-                type="button"
-                className={`achievement-badge-btn ${achievement.unlocked ? 'unlocked' : 'locked'}`}
-                style={{ '--badge-color': achievement.color } as CSSVariableProperties}
-                onClick={() => setSelectedAchievement(achievement)}
-                aria-label={`View achievement ${achievement.title}`}
-              >
-                <div className="achievement-badge-circle">
-                  <Icon size={22} />
-                </div>
-                <span className="achievement-badge-title">{achievement.title}</span>
-                <span className="achievement-badge-progress">{achievement.progressText}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+
 
       <div className="panel-section">
         <div className="section-heading">
@@ -2327,6 +2382,73 @@ function ProgressView({
         onSetMemory={onSetMemory}
         doneIdsForDate={doneIdsForDate}
       />
+
+    </section>
+  )
+}
+
+function AchievementsView({
+  activeHabits,
+  checkins,
+  moods,
+  drinks,
+  memories,
+  prefs,
+  currentStreak,
+}: {
+  activeHabits: Habit[]
+  checkins: Array<{ habitId: string; date: string }>
+  moods: MoodCheckin[]
+  drinks: DrinkCheckin[]
+  memories: DailyMemory[]
+  prefs: NotificationPrefs
+  currentStreak: number
+}) {
+  const achievements = useMemo(() => {
+    return computeAchievements(activeHabits, checkins, moods, drinks, currentStreak, memories, prefs)
+  }, [activeHabits, checkins, moods, drinks, currentStreak, memories, prefs])
+
+  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
+  const unlockedCount = achievements.filter((a) => a.unlocked).length
+
+  return (
+    <section className="screen-stack" aria-label="Achievements">
+      <div className="hero-panel" style={{ background: 'var(--theme-color)', color: '#fff', position: 'relative', overflow: 'hidden' }}>
+        <div>
+          <p className="panel-kicker" style={{ color: 'rgba(255,255,255,0.85)', margin: 0 }}>Unlock your growth</p>
+          <h2 style={{ fontSize: '24px', margin: '4px 0 0' }}>{unlockedCount}/{achievements.length} Badges Unlocked</h2>
+        </div>
+        <div style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', opacity: 0.18 }}>
+          <Trophy size={64} />
+        </div>
+      </div>
+
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Your Trophy Case</h2>
+        </div>
+        <div className="achievements-shelf" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          {achievements.map((achievement) => {
+            const Icon = achievementIcons[achievement.icon] ?? Trophy
+            return (
+              <button
+                key={achievement.id}
+                type="button"
+                className={`achievement-badge-btn ${achievement.unlocked ? 'unlocked' : 'locked'}`}
+                style={{ '--badge-color': achievement.color } as CSSVariableProperties}
+                onClick={() => setSelectedAchievement(achievement)}
+                aria-label={`View achievement ${achievement.title}`}
+              >
+                <div className="achievement-badge-circle">
+                  <Icon size={22} />
+                </div>
+                <span className="achievement-badge-title">{achievement.title}</span>
+                <span className="achievement-badge-progress">{achievement.progressText}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {selectedAchievement && (
         <AchievementCardModal
