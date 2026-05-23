@@ -109,6 +109,7 @@ import {
   Lock,
   Unlock,
   QrCode,
+  Video,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBujoData } from './hooks/useBujoData'
@@ -120,7 +121,7 @@ import { requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
 import { buildDashboardAnalytics, doneIdsForDate as getDoneIdsForDate } from './lib/dashboardAnalytics'
 import { getCircleMomentum } from './lib/social'
-import type { Achievement, ActivityEvent, Cheer, CheerType, Circle, DrinkCheckin, FriendProfile, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, SocialInboxItem, TimeOfDay, WeekDay } from './types'
+import type { Achievement, ActivityEvent, Cheer, CheerType, Circle, DailyMemory, DrinkCheckin, FriendProfile, Habit, HabitColor, HabitIcon, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, SocialInboxItem, TimeOfDay, WeekDay } from './types'
 
 type TabId = 'today' | 'habits' | 'progress' | 'friends' | 'settings'
 type CSSVariableProperties = CSSProperties & Record<`--${string}`, string | number>
@@ -398,8 +399,26 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [oauthPlatform, setOauthPlatform] = useState<'instagram' | 'facebook' | 'tiktok' | null>(null)
   const bujo = useBujoData(authState.user)
   const social = useFriends(authState.user)
+
+  const handleConnectSocial = useCallback(
+    async (platform: 'instagram' | 'facebook' | 'tiktok', connect: boolean) => {
+      if (!connect) {
+        const key = platform === 'instagram' 
+          ? 'socialConnectedInstagram' 
+          : platform === 'tiktok' 
+            ? 'socialConnectedTiktok' 
+            : 'socialConnectedFacebook'
+        await bujo.saveNotificationPrefs({ [key]: false })
+        setNotice(`Disconnected from ${platform.charAt(0).toUpperCase() + platform.slice(1)}.`)
+        return
+      }
+      setOauthPlatform(platform)
+    },
+    [bujo],
+  )
   const { publishHabitActivity, syncMyProfile } = social
   const todayKey = getDateKey()
   const currentWeekKeys = useMemo(() => getWeekDateKeys(), [])
@@ -577,8 +596,14 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                 checkins={bujo.checkins}
                 moods={bujo.moods}
                 drinks={bujo.drinks}
+                memories={bujo.memories}
                 streaks={appStreaks}
                 socialInsights={socialInsights}
+                prefs={bujo.prefs}
+                onToggle={(habitId, completed, date) => bujo.toggleToday(habitId, completed, date)}
+                onSetMood={(timeOfDay, value, date) => bujo.setMood(timeOfDay, value, date)}
+                onUpdateDrink={(type, delta, date) => bujo.updateDrinkCount(type, delta, date)}
+                onSetMemory={(text, date) => bujo.setMemory(text, date)}
               />
             )}
             {activeTab === 'friends' && (
@@ -632,6 +657,7 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
                   setNotice('Device reminders are off. Habit reminder times are still saved.')
                 }}
                 onSavePrefs={bujo.saveNotificationPrefs}
+                onConnectSocial={handleConnectSocial}
                 onSignOut={authState.signOut}
               />
             )}
@@ -667,6 +693,23 @@ function BujoHome({ authState }: { authState: ReturnType<typeof useAuth> }) {
             setEditingHabit(null)
           }}
           onSave={handleHabitSave}
+        />
+      )}
+
+      {oauthPlatform && (
+        <SimulatedOauthModal
+          platform={oauthPlatform}
+          onClose={() => setOauthPlatform(null)}
+          onAuthorize={async () => {
+            const key = oauthPlatform === 'instagram' 
+              ? 'socialConnectedInstagram' 
+              : oauthPlatform === 'tiktok' 
+                ? 'socialConnectedTiktok' 
+                : 'socialConnectedFacebook'
+            await bujo.saveNotificationPrefs({ [key]: true })
+            setOauthPlatform(null)
+            setNotice(`Successfully connected to ${oauthPlatform.charAt(0).toUpperCase() + oauthPlatform.slice(1)}!`)
+          }}
         />
       )}
     </div>
@@ -1039,29 +1082,114 @@ function DaySummarySheet({
   activeHabits,
   checkins,
   moods,
+  drinks,
+  memories,
+  onToggle,
+  onSetMood,
+  onUpdateDrink,
+  onSetMemory,
   onClose,
+  prefs,
 }: {
   dateKey: string
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
   moods: MoodCheckin[]
+  drinks: DrinkCheckin[]
+  memories: DailyMemory[]
+  onToggle: (habitId: string, completed: boolean) => Promise<void>
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null) => Promise<void>
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => Promise<void>
+  onSetMemory: (text: string) => Promise<void>
   onClose: () => void
+  prefs: NotificationPrefs
 }) {
   const todaysMoods = moods.filter((m) => m.date === dateKey)
   const morningMood = todaysMoods.find((m) => m.timeOfDay === 'morning')?.value
   const eveningMood = todaysMoods.find((m) => m.timeOfDay === 'evening')?.value
 
   const completedIds = new Set(checkins.filter((c) => c.date === dateKey).map((c) => c.habitId))
-  const completed = activeHabits.filter((h) => completedIds.has(h.id))
-  const pending = activeHabits.filter((h) => !completedIds.has(h.id))
+  const completedCount = activeHabits.filter((h) => completedIds.has(h.id)).length
 
-  const moodOptions: Record<MoodValue, { icon: React.ReactNode; label: string }> = {
-    terrible: { icon: <CloudRain size={16} />, label: 'Terrible' },
-    bad: { icon: <Frown size={16} />, label: 'Bad' },
-    okay: { icon: <Meh size={16} />, label: 'Okay' },
-    good: { icon: <Smile size={16} />, label: 'Good' },
-    great: { icon: <Laugh size={16} />, label: 'Great' },
+  const todaysDrinks = drinks.find((d) => d.date === dateKey) || { water: 0, coffee: 0, alcohol: 0, wine: 0, softdrink: 0 }
+
+  const existingMemory = memories.find((m) => m.date === dateKey)?.text || ''
+  const [memoryText, setMemoryText] = useState(existingMemory)
+  const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [importNotice, setImportNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMemoryText(memories.find((m) => m.date === dateKey)?.text || '')
+    setSaveStatus(null)
+    setImportNotice(null)
+  }, [dateKey, memories])
+
+  const handleSaveMemory = async (text: string) => {
+    setSaveStatus('Saving...')
+    try {
+      await onSetMemory(text)
+      setSaveStatus('Saved')
+      setTimeout(() => setSaveStatus(null), 1500)
+    } catch (err) {
+      setSaveStatus('Error saving')
+    }
   }
+
+  const moodOptions: Array<{ value: MoodValue; icon: React.ReactNode; label: string }> = [
+    { value: 'terrible', icon: <CloudRain size={20} />, label: 'Terrible' },
+    { value: 'bad', icon: <Frown size={20} />, label: 'Bad' },
+    { value: 'okay', icon: <Meh size={20} />, label: 'Okay' },
+    { value: 'good', icon: <Smile size={20} />, label: 'Good' },
+    { value: 'great', icon: <Laugh size={20} />, label: 'Great' },
+  ]
+
+  const drinkOptions: Array<{ type: 'water' | 'coffee' | 'softdrink' | 'wine' | 'alcohol'; label: string; icon: React.ReactNode; colorClass: string }> = [
+    { type: 'water', label: 'Water', icon: <GlassWater size={18} />, colorClass: 'water' },
+    { type: 'coffee', label: 'Coffee', icon: <Coffee size={18} />, colorClass: 'coffee' },
+    { type: 'softdrink', label: 'Soda', icon: <CupSoda size={18} />, colorClass: 'softdrink' },
+    { type: 'wine', label: 'Wine', icon: <Wine size={18} />, colorClass: 'wine' },
+    { type: 'alcohol', label: 'Beer', icon: <Beer size={18} />, colorClass: 'alcohol' },
+  ]
+
+  const mockPostsForDate = useMemo(() => {
+    const seed = dateKey.split('-').reduce((acc, val) => acc + Number(acc) + (val.charCodeAt(0) || 0), 0)
+    const instagramCaptions = [
+      "Had an amazing workout today! 🏃‍♂️💨 Crushing habits! #fitness #healthy",
+      "Cozy morning at the local coffee shop. ☕ Highly productive session today.",
+      "Beautiful sunset walk today. 🌅 Mindful breathing and screen detox.",
+      "Just finished meal prep for the upcoming week! 🥗 Feeling organized.",
+      "Tackled 2 full hours of deep learning & reading today! 📚🧠",
+      "Hit the gym and cracked a new personal record! 🏋️‍♀️ Hard work pays off.",
+    ]
+    const tiktokCaptions = [
+      "My healthy morning routine! ✨ #aesthetic #productivity #glowup",
+      "Quick vlog: tracking my habits and drinking water all day! 💧",
+      "Unboxing new fitness gear and planning my workouts! 👟💪",
+      "Day in the life of staying consistent! 🚀 Don't stop moving.",
+      "Made a super delicious protein bowl today! 🥑🍳 #cooking",
+      "15 mins morning yoga flow for absolute peace of mind! 🧘‍♂️ Try this!",
+    ]
+    const facebookCaptions = [
+      "Super grateful for a productive and healthy day! 🌟 Stay positive.",
+      "Scenic bike ride around the lake this evening! 🚴‍♂️ Breath of fresh air.",
+      "Reflecting on small daily habits making huge changes. 📈",
+      "Cooked a super healthy dinner tonight! 🥦🥘 Healthy mind, healthy body.",
+      "Started the day with 15 mins of deep meditation. 🧘‍♂️ Feeling calm.",
+      "Checked off all my active habits on Bujo today! 🏆 What a win!",
+    ]
+
+    const index = seed % 6
+    return {
+      instagram: instagramCaptions[index],
+      tiktok: tiktokCaptions[index],
+      facebook: facebookCaptions[index],
+    }
+  }, [dateKey])
+
+  const hasInstagram = prefs.socialConnectedInstagram
+  const hasTiktok = prefs.socialConnectedTiktok
+  const hasFacebook = prefs.socialConnectedFacebook
+  const anySocialConnected = hasInstagram || hasTiktok || hasFacebook
 
   return (
     <div className="sheet-backdrop">
@@ -1073,58 +1201,274 @@ function DaySummarySheet({
             <X size={20} />
           </button>
         </header>
-        <div className="sheet-content">
+        <div className="sheet-content" style={{ display: 'grid', gap: '20px', paddingBottom: '20px' }}>
+          
+          {/* Daily Memory Note */}
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Daily Memory</h2>
+              {saveStatus && <span className="save-status" style={{ fontSize: '12px', color: 'var(--theme-color)', fontWeight: 600 }}>{saveStatus}</span>}
+            </div>
+            <div className="memory-editor-container" style={{ position: 'relative' }}>
+              <textarea
+                className="memory-textarea"
+                value={memoryText}
+                onChange={(e) => setMemoryText(e.target.value)}
+                onBlur={() => handleSaveMemory(memoryText)}
+                placeholder="What made today special? Add a short note, highlight, or memory..."
+                maxLength={280}
+                rows={3}
+                style={{ width: '100%', padding: '12px', borderRadius: '14px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: 'inherit', fontSize: '14px', resize: 'none', outline: 'none' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginTop: '4px', padding: '0 4px' }}>
+                <span>{memoryText.length}/280 characters</span>
+                <button
+                  type="button"
+                  className="link-button"
+                  style={{ background: 'none', border: 'none', color: 'var(--theme-color)', cursor: 'pointer', fontWeight: 600, fontSize: '11px', padding: 0 }}
+                  onClick={() => handleSaveMemory(memoryText)}
+                >
+                  Save Note
+                </button>
+              </div>
+            </div>
+
+            {/* Social Sync Import */}
+            {anySocialConnected ? (
+              <div className="social-imports-list" style={{ marginTop: '12px', display: 'grid', gap: '8px' }}>
+                {importNotice && <div style={{ fontSize: '11px', color: 'var(--theme-color)', padding: '0 4px', fontWeight: 500 }}>{importNotice}</div>}
+                
+                {hasInstagram && (
+                  <div className="social-sync-post-card" style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '12px', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                          <InstagramIcon size={12} />
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>Instagram</span>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ fontSize: '11px', background: 'none', border: 'none', color: 'var(--theme-color)', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                        onClick={() => {
+                          const captionText = mockPostsForDate.instagram
+                          setMemoryText((prev) => {
+                            const base = prev.trim()
+                            return base ? `${base}\n\n📸 Instagram: ${captionText}` : `📸 Instagram: ${captionText}`
+                          })
+                          setImportNotice("Imported Instagram post! Remember to tap Save Note.")
+                        }}
+                      >
+                        + Add to Note
+                      </button>
+                    </div>
+                    <p style={{ fontSize: '12px', margin: 0, color: 'var(--text)', opacity: 0.9 }}>
+                      "{mockPostsForDate.instagram}"
+                    </p>
+                  </div>
+                )}
+
+                {hasTiktok && (
+                  <div className="social-sync-post-card" style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '12px', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                          <TiktokIcon size={12} />
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>TikTok Video</span>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ fontSize: '11px', background: 'none', border: 'none', color: 'var(--theme-color)', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                        onClick={() => {
+                          const captionText = mockPostsForDate.tiktok
+                          setMemoryText((prev) => {
+                            const base = prev.trim()
+                            return base ? `${base}\n\n🎥 TikTok: ${captionText}` : `🎥 TikTok: ${captionText}`
+                          })
+                          setImportNotice("Imported TikTok caption! Remember to tap Save Note.")
+                        }}
+                      >
+                        + Add to Note
+                      </button>
+                    </div>
+                    <p style={{ fontSize: '12px', margin: 0, color: 'var(--text)', opacity: 0.9 }}>
+                      "{mockPostsForDate.tiktok}"
+                    </p>
+                  </div>
+                )}
+
+                {hasFacebook && (
+                  <div className="social-sync-post-card" style={{ display: 'flex', flexDirection: 'column', padding: '10px 12px', background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '12px', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#1877f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                          <FacebookIcon size={12} />
+                        </div>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>Facebook Post</span>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ fontSize: '11px', background: 'none', border: 'none', color: 'var(--theme-color)', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                        onClick={() => {
+                          const captionText = mockPostsForDate.facebook
+                          setMemoryText((prev) => {
+                            const base = prev.trim()
+                            return base ? `${base}\n\n👥 Facebook: ${captionText}` : `👥 Facebook: ${captionText}`
+                          })
+                          setImportNotice("Imported Facebook status! Remember to tap Save Note.")
+                        }}
+                      >
+                        + Add to Note
+                      </button>
+                    </div>
+                    <p style={{ fontSize: '12px', margin: 0, color: 'var(--text)', opacity: 0.9 }}>
+                      "{mockPostsForDate.facebook}"
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '8px 0 0', padding: '0 4px', fontStyle: 'italic' }}>
+                💡 Tip: Connect Instagram or TikTok in settings to import daily posts here!
+              </p>
+            )}
+          </div>
+
+          {/* Interactive Mood Tracker */}
           <div className="panel-section">
             <div className="section-heading">
               <h2>Mood</h2>
             </div>
             <div className="mood-tracker" style={{ gap: '12px' }}>
-              <div className="mood-row">
-                <span>Sleep Quality</span>
-                {morningMood ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
-                    {moodOptions[morningMood].icon} <strong>{moodOptions[morningMood].label}</strong>
-                  </div>
-                ) : (
-                  <span>No check-in</span>
-                )}
+              <div className="mood-row" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>Sleep Quality</span>
+                <div className="mood-options" style={{ display: 'flex', gap: '6px', width: '100%', justifyContent: 'space-between' }}>
+                  {moodOptions.map((opt) => (
+                    <button
+                      key={`morning-${opt.value}`}
+                      type="button"
+                      className={`mood-btn ${morningMood === opt.value ? 'active' : ''}`}
+                      onClick={() => onSetMood('morning', morningMood === opt.value ? null : opt.value)}
+                      aria-label={opt.label}
+                      style={{ padding: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', border: '1px solid var(--line)', background: morningMood === opt.value ? 'var(--theme-color)' : 'var(--surface)', color: morningMood === opt.value ? '#fff' : 'var(--text)', cursor: 'pointer' }}
+                    >
+                      {opt.icon}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="mood-row">
-                <span>Day Feeling</span>
-                {eveningMood ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text)' }}>
-                    {moodOptions[eveningMood].icon} <strong>{moodOptions[eveningMood].label}</strong>
-                  </div>
-                ) : (
-                  <span>No check-in</span>
-                )}
+              <div className="mood-row" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start', marginTop: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--muted)' }}>Day Feeling</span>
+                <div className="mood-options" style={{ display: 'flex', gap: '6px', width: '100%', justifyContent: 'space-between' }}>
+                  {moodOptions.map((opt) => (
+                    <button
+                      key={`evening-${opt.value}`}
+                      type="button"
+                      className={`mood-btn ${eveningMood === opt.value ? 'active' : ''}`}
+                      onClick={() => onSetMood('evening', eveningMood === opt.value ? null : opt.value)}
+                      aria-label={opt.label}
+                      style={{ padding: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', border: '1px solid var(--line)', background: eveningMood === opt.value ? 'var(--theme-color)' : 'var(--surface)', color: eveningMood === opt.value ? '#fff' : 'var(--text)', cursor: 'pointer' }}
+                    >
+                      {opt.icon}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Interactive Drinks Tracker */}
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Drinks</h2>
+            </div>
+            <div className="drinks-history-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+              {drinkOptions.map((opt) => {
+                const count = todaysDrinks[opt.type] || 0
+                return (
+                  <div key={opt.type} className="drink-history-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 4px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--line)', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)' }}>{opt.label}</span>
+                    <div className={`drink-icon ${opt.colorClass}`} style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                      {opt.icon}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <button
+                        type="button"
+                        style={{ padding: '2px 6px', fontSize: '12px', fontWeight: 700, background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer' }}
+                        onClick={() => onUpdateDrink(opt.type, -1)}
+                        disabled={count <= 0}
+                      >
+                        -
+                      </button>
+                      <strong style={{ fontSize: '13px', minWidth: '12px', textAlign: 'center', color: 'var(--text)' }}>{count}</strong>
+                      <button
+                        type="button"
+                        style={{ padding: '2px 6px', fontSize: '12px', fontWeight: 700, background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer' }}
+                        onClick={() => onUpdateDrink(opt.type, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Interactive Habits Tracker */}
           <div className="panel-section">
             <div className="section-heading">
               <h2>Habits</h2>
-              <span>{completed.length}/{activeHabits.length}</span>
+              <span>{completedCount}/{activeHabits.length}</span>
             </div>
-            <div className="habit-list">
-              {completed.map((h) => (
-                <div key={h.id} className="habit-row" style={{ minHeight: 'auto', padding: '10px 14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ color: 'var(--blue)' }}><Check size={16} /></div>
-                    <strong>{h.name}</strong>
+            <div className="habit-list" style={{ display: 'grid', gap: '8px' }}>
+              {activeHabits.map((h) => {
+                const isCompleted = completedIds.has(h.id)
+                return (
+                  <div 
+                    key={h.id} 
+                    className={`habit-row ${isCompleted ? 'completed' : ''}`} 
+                    style={{ 
+                      minHeight: 'auto', 
+                      padding: '10px 14px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      background: 'var(--surface)',
+                      borderRadius: '14px',
+                      border: '1px solid var(--line)',
+                      opacity: isCompleted ? 1 : 0.85
+                    }}
+                  >
+                    <HabitIdentity habit={h} />
+                    <button
+                      type="button"
+                      className="check-control"
+                      style={{ 
+                        width: '28px', 
+                        height: '28px', 
+                        borderRadius: '50%', 
+                        border: isCompleted ? 'none' : '1px solid var(--line)', 
+                        background: isCompleted ? 'var(--theme-color)' : 'transparent', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: '#fff', 
+                        cursor: 'pointer',
+                        padding: 0
+                      }}
+                      onClick={() => onToggle(h.id, isCompleted)}
+                      aria-label={isCompleted ? `Undo ${h.name}` : `Complete ${h.name}`}
+                    >
+                      {isCompleted && <Check size={16} />}
+                    </button>
                   </div>
-                </div>
-              ))}
-              {pending.map((h) => (
-                <div key={h.id} className="habit-row" style={{ minHeight: 'auto', padding: '10px 14px', opacity: 0.6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--muted)' }} />
-                    <span>{h.name}</span>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -1135,11 +1479,25 @@ function ActivityCalendar({
   activeHabits,
   checkins,
   moods,
+  drinks,
+  memories,
+  prefs,
+  onToggle,
+  onSetMood,
+  onUpdateDrink,
+  onSetMemory,
   doneIdsForDate,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
   moods: MoodCheckin[]
+  drinks: DrinkCheckin[]
+  memories: DailyMemory[]
+  prefs: NotificationPrefs
+  onToggle: (habitId: string, completed: boolean, date: string) => Promise<void>
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null, date: string) => Promise<void>
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number, date: string) => Promise<void>
+  onSetMemory: (text: string, date: string) => Promise<void>
   doneIdsForDate: (dateKey: string) => Set<string>
 }) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
@@ -1205,7 +1563,14 @@ function ActivityCalendar({
           activeHabits={activeHabits}
           checkins={checkins}
           moods={moods}
+          drinks={drinks}
+          memories={memories}
+          onToggle={(habitId, completed) => onToggle(habitId, completed, selectedDate)}
+          onSetMood={(timeOfDay, value) => onSetMood(timeOfDay, value, selectedDate)}
+          onUpdateDrink={(type, delta) => onUpdateDrink(type, delta, selectedDate)}
+          onSetMemory={(text) => onSetMemory(text, selectedDate)}
           onClose={() => setSelectedDate(null)}
+          prefs={prefs}
         />
       )}
     </div>
@@ -1317,13 +1682,20 @@ function ProgressView({
   checkins,
   moods,
   drinks,
+  memories,
   streaks,
   socialInsights,
+  prefs,
+  onToggle,
+  onSetMood,
+  onUpdateDrink,
+  onSetMemory,
 }: {
   activeHabits: Habit[]
   checkins: Array<{ habitId: string; date: string }>
   moods: MoodCheckin[]
   drinks: DrinkCheckin[]
+  memories: DailyMemory[]
   streaks: { current: number; best: number; total: number }
   socialInsights: {
     activeFriendsToday: number
@@ -1332,6 +1704,11 @@ function ProgressView({
     cheersReceivedToday: number
     unreadCount: number
   }
+  prefs: NotificationPrefs
+  onToggle: (habitId: string, completed: boolean, date: string) => Promise<void>
+  onSetMood: (timeOfDay: TimeOfDay, value: MoodValue | null, date: string) => Promise<void>
+  onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number, date: string) => Promise<void>
+  onSetMemory: (text: string, date: string) => Promise<void>
 }) {
   const currentStreak = streaks.current
   const achievements = useMemo(() => {
@@ -1619,6 +1996,13 @@ function ProgressView({
         activeHabits={activeHabits}
         checkins={checkins}
         moods={moods}
+        drinks={drinks}
+        memories={memories}
+        prefs={prefs}
+        onToggle={onToggle}
+        onSetMood={onSetMood}
+        onUpdateDrink={onUpdateDrink}
+        onSetMemory={onSetMemory}
         doneIdsForDate={doneIdsForDate}
       />
 
@@ -1640,6 +2024,7 @@ function SettingsView({
   onEnableReminders,
   onDisableReminders,
   onSavePrefs,
+  onConnectSocial,
   onSignOut,
 }: {
   photoURL?: string | null
@@ -1649,6 +2034,7 @@ function SettingsView({
   onEnableReminders: () => Promise<void>
   onDisableReminders: () => Promise<void>
   onSavePrefs: (updates: Partial<NotificationPrefs>) => Promise<void>
+  onConnectSocial: (platform: 'instagram' | 'facebook' | 'tiktok', connect: boolean) => void
   onSignOut: () => Promise<void>
 }) {
   const [saving, setSaving] = useState(false)
@@ -1770,11 +2156,210 @@ function SettingsView({
         </div>
       </div>
 
+      <div className="panel-section">
+        <div className="section-heading">
+          <h2>Social Sync (Concept)</h2>
+        </div>
+        <p className="section-desc" style={{ fontSize: '13px', color: 'var(--muted)', marginTop: '-8px', marginBottom: '12px' }}>
+          Connect platforms to sync your daily posts and media as memories.
+        </p>
+        <div style={{ display: 'grid', gap: '10px' }}>
+          {/* Instagram */}
+          <div className="social-connect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface)', borderRadius: '14px', border: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                <InstagramIcon size={18} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: '14px', color: 'var(--text)' }}>Instagram</strong>
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                  {prefs.socialConnectedInstagram ? 'Connected as @bujo_explorer' : 'Not connected'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className={prefs.socialConnectedInstagram ? 'secondary-action compact-action' : 'primary-action compact-action'}
+              style={{ margin: 0, padding: '6px 12px', fontSize: '13px', minHeight: 'auto', width: 'auto' }}
+              onClick={() => onConnectSocial('instagram', !prefs.socialConnectedInstagram)}
+            >
+              {prefs.socialConnectedInstagram ? 'Disconnect' : 'Connect'}
+            </button>
+          </div>
+
+          {/* TikTok */}
+          <div className="social-connect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface)', borderRadius: '14px', border: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                <Video size={18} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: '14px', color: 'var(--text)' }}>TikTok</strong>
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                  {prefs.socialConnectedTiktok ? 'Connected as @bujo_creator' : 'Not connected'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className={prefs.socialConnectedTiktok ? 'secondary-action compact-action' : 'primary-action compact-action'}
+              style={{ margin: 0, padding: '6px 12px', fontSize: '13px', minHeight: 'auto', width: 'auto' }}
+              onClick={() => onConnectSocial('tiktok', !prefs.socialConnectedTiktok)}
+            >
+              {prefs.socialConnectedTiktok ? 'Disconnect' : 'Connect'}
+            </button>
+          </div>
+
+          {/* Facebook */}
+          <div className="social-connect-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--surface)', borderRadius: '14px', border: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#1877f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                <FacebookIcon size={18} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: '14px', color: 'var(--text)' }}>Facebook</strong>
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                  {prefs.socialConnectedFacebook ? 'Connected as Bujo Explorer' : 'Not connected'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className={prefs.socialConnectedFacebook ? 'secondary-action compact-action' : 'primary-action compact-action'}
+              style={{ margin: 0, padding: '6px 12px', fontSize: '13px', minHeight: 'auto', width: 'auto' }}
+              onClick={() => onConnectSocial('facebook', !prefs.socialConnectedFacebook)}
+            >
+              {prefs.socialConnectedFacebook ? 'Disconnect' : 'Connect'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <button className="secondary-action danger" type="button" onClick={onSignOut}>
         <LogOut size={20} />
         <span>Sign out</span>
       </button>
     </section>
+  )
+}
+
+function InstagramIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-instagram">
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+    </svg>
+  )
+}
+
+function FacebookIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-facebook">
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+    </svg>
+  )
+}
+
+function TiktokIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-tiktok">
+      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/>
+    </svg>
+  )
+}
+
+function SimulatedOauthModal({
+  platform,
+  onClose,
+  onAuthorize,
+}: {
+  platform: 'instagram' | 'facebook' | 'tiktok'
+  onClose: () => void
+  onAuthorize: () => Promise<void>
+}) {
+  const [authorizing, setAuthorizing] = useState(false)
+
+  const handleAuthorize = async () => {
+    setAuthorizing(true)
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await onAuthorize()
+  }
+
+  const brandStyles: Record<typeof platform, { bg: string; iconBg: string; name: string; icon: React.ReactNode }> = {
+    instagram: {
+      bg: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+      iconBg: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+      name: 'Instagram',
+      icon: <InstagramIcon size={32} />,
+    },
+    tiktok: {
+      bg: '#000000',
+      iconBg: '#000000',
+      name: 'TikTok',
+      icon: <Video size={32} />,
+    },
+    facebook: {
+      bg: '#1877f2',
+      iconBg: '#1877f2',
+      name: 'Facebook',
+      icon: <FacebookIcon size={32} />,
+    },
+  }
+
+  const brand = brandStyles[platform]
+
+  return (
+    <div className="oauth-backdrop">
+      <div className="oauth-window">
+        <header className="oauth-header" style={{ background: brand.bg }}>
+          <div className="oauth-brand-icon">
+            {brand.icon}
+          </div>
+          <h2>Connect {brand.name} to Bujo</h2>
+        </header>
+        <div className="oauth-body">
+          {authorizing ? (
+            <div className="oauth-loading">
+              <div className="spinner" />
+              <p>Establishing secure connection...</p>
+            </div>
+          ) : (
+            <>
+              <p className="oauth-desc">
+                <strong>Bujo</strong> is requesting permission to access your {brand.name} account to learn about your days and import activity.
+              </p>
+              <div className="oauth-permissions">
+                <h3>Permitted Access:</h3>
+                <ul>
+                  <li>
+                    <strong>Read profile info</strong>
+                    <span>To link your public handle and avatar.</span>
+                  </li>
+                  <li>
+                    <strong>Read posts & media</strong>
+                    <span>To fetch and display your daily updates inside the history calendar.</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="oauth-warning-card">
+                <p>
+                  🛡️ <strong>Privacy First:</strong> Your credentials are never stored. The connection is fully simulated for development.
+                </p>
+              </div>
+              <div className="oauth-actions">
+                <button type="button" className="secondary-action" onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="button" className="primary-action" style={{ background: brand.bg, borderColor: 'transparent', color: '#fff' }} onClick={handleAuthorize}>
+                  Authorize Access
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 

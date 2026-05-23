@@ -53,6 +53,9 @@ export interface NotificationPrefs {
   sound?: string
   theme?: 'system' | 'light' | 'dark'
   themeColor?: string
+  socialConnectedInstagram?: boolean
+  socialConnectedFacebook?: boolean
+  socialConnectedTiktok?: boolean
 }
 
 export type MoodValue = 'terrible' | 'bad' | 'okay' | 'good' | 'great'
@@ -215,4 +218,11 @@ export interface Nudge {
   date: string
   createdAtMs: number
   createdAt?: unknown
+}
+
+export interface DailyMemory {
+  id: string
+  date: string
+  text: string
+  updatedAt?: unknown
 }

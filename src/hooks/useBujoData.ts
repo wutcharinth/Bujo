@@ -17,7 +17,7 @@ import { getDateKey } from '../lib/dates'
 import { normalizeWeeklyTarget } from '../lib/habitGoals'
 import { getPlatformHints } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
-import type { Checkin, DrinkCheckin, Habit, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from '../types'
+import type { Checkin, DailyMemory, DrinkCheckin, Habit, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from '../types'
 
 const defaultPrefs = (): NotificationPrefs => ({
   enabled: false,
@@ -107,6 +107,7 @@ export function useBujoData(user: User | null) {
   const [checkins, setCheckins] = useState<Checkin[]>([])
   const [moods, setMoods] = useState<MoodCheckin[]>([])
   const [drinks, setDrinks] = useState<DrinkCheckin[]>([])
+  const [memories, setMemories] = useState<DailyMemory[]>([])
   const [prefs, setPrefs] = useState<NotificationPrefs>(defaultPrefs)
   const [loading, setLoading] = useState(Boolean(user))
   const [error, setError] = useState<string | null>(null)
@@ -178,6 +179,25 @@ export function useBujoData(user: User | null) {
       (snapshotError) => setError(snapshotError.message),
     )
 
+    const unsubscribeMemories = onSnapshot(
+      collection(db, basePath, 'memories'),
+      (snapshot) => {
+        setMemories(
+          snapshot.docs
+            .map((item) => {
+              const data = item.data()
+              return {
+                id: item.id,
+                date: typeof data.date === 'string' ? data.date : item.id,
+                text: typeof data.text === 'string' ? data.text : '',
+              }
+            })
+            .filter((m) => m.date),
+        )
+      },
+      (snapshotError) => setError(snapshotError.message),
+    )
+
     const prefsRef = doc(db, basePath, 'notificationPrefs', 'main')
     const unsubscribePrefs = onSnapshot(
       prefsRef,
@@ -211,6 +231,7 @@ export function useBujoData(user: User | null) {
       unsubscribeCheckins()
       unsubscribeMoods()
       unsubscribeDrinks()
+      unsubscribeMemories()
       unsubscribePrefs()
     }
   }, [user])
@@ -258,10 +279,10 @@ export function useBujoData(user: User | null) {
   )
 
   const toggleToday = useCallback(
-    async (habitId: string, completed: boolean) => {
+    async (habitId: string, completed: boolean, dateKey?: string) => {
       if (!user || !db) return
 
-      const date = getDateKey()
+      const date = dateKey || getDateKey()
       const checkinId = `${date}_${habitId}`
       const checkinRef = doc(db, userPath(user.uid), 'checkins', checkinId)
 
@@ -280,10 +301,10 @@ export function useBujoData(user: User | null) {
   )
 
   const setMood = useCallback(
-    async (timeOfDay: TimeOfDay, value: MoodValue | null) => {
+    async (timeOfDay: TimeOfDay, value: MoodValue | null, dateKey?: string) => {
       if (!user || !db) return
 
-      const date = getDateKey()
+      const date = dateKey || getDateKey()
       const moodId = `${date}_${timeOfDay}`
       const moodRef = doc(db, userPath(user.uid), 'moods', moodId)
 
@@ -303,10 +324,10 @@ export function useBujoData(user: User | null) {
   )
 
   const updateDrinkCount = useCallback(
-    async (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number) => {
+    async (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number, dateKey?: string) => {
       if (!user || !db) return
 
-      const date = getDateKey()
+      const date = dateKey || getDateKey()
       const drinkRef = doc(db, userPath(user.uid), 'drinks', date)
 
       const currentDrinks = drinks.find((d) => d.id === date)
@@ -324,6 +345,27 @@ export function useBujoData(user: User | null) {
       )
     },
     [user, drinks],
+  )
+
+  const setMemory = useCallback(
+    async (text: string, dateKey?: string) => {
+      if (!user || !db) return
+
+      const date = dateKey || getDateKey()
+      const memoryRef = doc(db, userPath(user.uid), 'memories', date)
+
+      if (!text.trim()) {
+        await deleteDoc(memoryRef)
+        return
+      }
+
+      await setDoc(memoryRef, {
+        date,
+        text: text.trim(),
+        updatedAt: serverTimestamp(),
+      })
+    },
+    [user],
   )
 
   const saveNotificationPrefs = useCallback(
@@ -367,6 +409,7 @@ export function useBujoData(user: User | null) {
     checkins,
     moods,
     drinks,
+    memories,
     prefs,
     loading,
     error,
@@ -376,6 +419,7 @@ export function useBujoData(user: User | null) {
     toggleToday,
     setMood,
     updateDrinkCount,
+    setMemory,
     saveNotificationPrefs,
     saveFcmToken,
   }
