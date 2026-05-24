@@ -4700,5 +4700,25 @@ main {
   border: 1.5px dashed var(--line);
 }
 
+.great-mood-color {
+  color: #10b981;
+}
+
+.good-mood-color {
+  color: #6366f1;
+}
+
+.okay-mood-color {
+  color: #f59e0b;
+}
+
+.bad-mood-color {
+  color: #f97316;
+}
+
+.terrible-mood-color {
+  color: #ef4444;
+}
+
 
 

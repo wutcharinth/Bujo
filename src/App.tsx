@@ -3641,18 +3641,32 @@ function ProgressView({
             <div className="wellness-trend-row">
               {currentSevenKeys.map((dateKey, index) => {
                 const dayMood = moods.find((m) => m.date === dateKey)
-                let emoji = ''
-                if (dayMood?.value === 'great') emoji = '😄'
-                else if (dayMood?.value === 'good') emoji = '🙂'
-                else if (dayMood?.value === 'okay') emoji = '😐'
-                else if (dayMood?.value === 'bad') emoji = '🙁'
-                else if (dayMood?.value === 'terrible') emoji = '😭'
+                let IconComp: LucideIcon | null = null
+                let iconClass = ''
+                if (dayMood?.value === 'great') {
+                  IconComp = Laugh
+                  iconClass = 'great-mood-color'
+                } else if (dayMood?.value === 'good') {
+                  IconComp = Smile
+                  iconClass = 'good-mood-color'
+                } else if (dayMood?.value === 'okay') {
+                  IconComp = Meh
+                  iconClass = 'okay-mood-color'
+                } else if (dayMood?.value === 'bad') {
+                  IconComp = Frown
+                  iconClass = 'bad-mood-color'
+                } else if (dayMood?.value === 'terrible') {
+                  IconComp = CloudRain
+                  iconClass = 'terrible-mood-color'
+                }
 
                 return (
                   <div className="wellness-trend-cell" key={dateKey}>
                     <span className="wellness-trend-day-lbl">{dateLabels[index]}</span>
-                    {emoji ? (
-                      <span className="wellness-trend-val">{emoji}</span>
+                    {IconComp ? (
+                      <span className={`wellness-trend-val ${iconClass}`}>
+                        <IconComp size={20} />
+                      </span>
                     ) : (
                       <span className="wellness-trend-val empty" title="No log" />
                     )}
