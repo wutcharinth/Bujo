@@ -4368,4 +4368,337 @@ main {
 .animate-fade-up-stagger > *:nth-child(4) { animation-delay: 0.26s; }
 .animate-fade-up-stagger > *:nth-child(5) { animation-delay: 0.33s; }
 
+/* Revamped Progress Analytics Tab CSS Rules */
+
+.progress-subtab-bar {
+  display: flex;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  gap: 4px;
+  margin-bottom: 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.subtab-btn {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.subtab-btn:hover:not(.active) {
+  color: var(--text);
+  background: rgba(120, 120, 128, 0.1);
+}
+
+.subtab-btn.active {
+  background: var(--surface);
+  color: var(--theme-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Sorting button styles */
+.sort-control-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.sort-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.sort-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.sort-btn {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-btn:hover:not(.active) {
+  border-color: rgba(var(--theme-color-rgb, 120, 100, 255), 0.25);
+  color: var(--text);
+}
+
+.sort-btn.active {
+  border-color: var(--theme-color);
+  color: var(--theme-color);
+  background: rgba(var(--theme-color-rgb, 120, 100, 255), 0.08);
+  font-weight: 700;
+}
+
+/* Contextual Health Badges */
+.health-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.health-badge.thriving {
+  background: rgba(16, 185, 129, 0.09);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.health-badge.stable {
+  background: rgba(99, 102, 241, 0.09);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.health-badge.needs-care {
+  background: rgba(245, 158, 11, 0.09);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* Scrollable habit matrix layout */
+.matrix-scroll-wrapper {
+  overflow-x: auto;
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(var(--surface-strong-rgb, 25, 25, 28), 0.35);
+  padding: 4px;
+  margin-top: 8px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.matrix-scroll-wrapper .habit-matrix {
+  min-width: 380px;
+  padding: 8px;
+}
+
+/* Wellness Analytics charts styling */
+.wellness-distribution-card {
+  width: 100%;
+  background: rgba(var(--surface-strong-rgb, 25, 25, 28), 0.45);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 18px;
+  text-align: left;
+  backdrop-filter: blur(8px);
+}
+
+.wellness-distribution-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.wellness-bar-chart {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(120, 120, 128, 0.12);
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.wellness-bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.wellness-bar-segment.great { background: #10b981; }
+.wellness-bar-segment.good { background: #6366f1; }
+.wellness-bar-segment.meh { background: #f59e0b; }
+.wellness-bar-segment.frown { background: #ef4444; }
+
+.wellness-bar-legend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.wellness-legend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.wellness-legend-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-bottom: 4px;
+}
+
+.wellness-legend-color-dot.great { background: #10b981; }
+.wellness-legend-color-dot.good { background: #6366f1; }
+.wellness-legend-color-dot.meh { background: #f59e0b; }
+.wellness-legend-color-dot.frown { background: #ef4444; }
+
+.wellness-legend-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.wellness-legend-count {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* Beverage ratio tracks */
+.beverage-gauge-card {
+  width: 100%;
+  background: rgba(var(--surface-strong-rgb, 25, 25, 28), 0.45);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.beverage-ratio-track {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(120, 120, 128, 0.12);
+  width: 100%;
+  margin: 12px 0;
+}
+
+.beverage-ratio-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.beverage-ratio-segment.water { background: #3b82f6; }
+.beverage-ratio-segment.coffee { background: #b45309; }
+.beverage-ratio-segment.alcohol { background: #8b5cf6; }
+.beverage-ratio-segment.wine { background: #ec4899; }
+.beverage-ratio-segment.softdrink { background: #10b981; }
+
+.beverage-legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+}
+
+@media (min-width: 400px) {
+  .beverage-legend {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.beverage-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.beverage-legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.beverage-legend-color.water { background: #3b82f6; }
+.beverage-legend-color.coffee { background: #b45309; }
+.beverage-legend-color.alcohol { background: #8b5cf6; }
+.beverage-legend-color.wine { background: #ec4899; }
+.beverage-legend-color.softdrink { background: #10b981; }
+
+.beverage-legend-text {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.beverage-legend-text strong {
+  color: var(--text);
+  margin-left: 2px;
+}
+
+/* Daily mood trend visual grid */
+.wellness-trend-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 8px 0 16px 0;
+}
+
+.wellness-trend-cell {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.wellness-trend-day-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.wellness-trend-val {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.wellness-trend-val.empty {
+  border: 1.5px dashed var(--line);
+}
+
+
 

@@ -3161,6 +3161,9 @@ function ProgressView({
   onUpdateDrink: (type: 'water' | 'coffee' | 'alcohol' | 'wine' | 'softdrink', delta: number, date: string) => Promise<void>
   onSetMemory: (text: string, date: string) => Promise<void>
 }) {
+  const [subTab, setSubTab] = useState<'overview' | 'habits' | 'wellness'>('overview')
+  const [sortOrder, setSortOrder] = useState<'rate-desc' | 'rate-asc' | 'name'>('rate-desc')
+
   const weekKeys = useMemo(() => getWeekDateKeys(), [])
   const recentKeys = useMemo(() => getRecentDateKeys(14), [])
   const rhythmKeys = useMemo(() => getRecentDateKeys(28), [])
@@ -3214,216 +3217,541 @@ function ProgressView({
     hydrationInsight,
   } = analytics
 
+  // --- Mood Distribution Calculations (Wellness sub-tab) ---
+  const moodCounts = useMemo(() => {
+    const counts = { great: 0, good: 0, okay: 0, bad: 0, terrible: 0 }
+    moods.forEach((m) => {
+      const v = m.value as keyof typeof counts
+      if (v in counts) {
+        counts[v]++
+      }
+    })
+    return counts
+  }, [moods])
+
+  const totalMoodLogs = useMemo(() => {
+    return moodCounts.great + moodCounts.good + moodCounts.okay + moodCounts.bad + moodCounts.terrible
+  }, [moodCounts])
+
+  // --- Beverage Volume Calculations (Wellness sub-tab) ---
+  const beverageTotals = useMemo(() => {
+    const totals = { water: 0, coffee: 0, alcohol: 0, wine: 0, softdrink: 0 }
+    drinks.forEach((d) => {
+      totals.water += d.water ?? 0
+      totals.coffee += d.coffee ?? 0
+      totals.alcohol += d.alcohol ?? 0
+      totals.wine += d.wine ?? 0
+      totals.softdrink += d.softdrink ?? 0
+    })
+    return totals
+  }, [drinks])
+
+  const totalDrinksLogged = useMemo(() => {
+    return (
+      beverageTotals.water +
+      beverageTotals.coffee +
+      beverageTotals.alcohol +
+      beverageTotals.wine +
+      beverageTotals.softdrink
+    )
+  }, [beverageTotals])
+
+  // --- Habits Sorting Logic (Habits sub-tab) ---
+  const sortedBreakdown = useMemo(() => {
+    const list = [...habitBreakdown]
+    if (sortOrder === 'rate-desc') {
+      return list.sort((a, b) => b.rate - a.rate)
+    }
+    if (sortOrder === 'rate-asc') {
+      return list.sort((a, b) => a.rate - b.rate)
+    }
+    return list.sort((a, b) => a.habit.name.localeCompare(b.habit.name))
+  }, [habitBreakdown, sortOrder])
+
   return (
     <section className="screen-stack" aria-label="Progress">
-      <div className="insight-hero">
-        <div>
-          <p className="panel-kicker">{dashboardMood}</p>
-          <h2>{currentRate}%</h2>
-        </div>
-        <span className={trend >= 0 ? 'trend-pill positive' : 'trend-pill negative'}>{trend >= 0 ? '+' : ''}{trend}</span>
+      {/* Sub-tab segmented controller */}
+      <div className="progress-subtab-bar">
+        <button
+          type="button"
+          className={`subtab-btn ${subTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setSubTab('overview')}
+        >
+          <Home size={15} />
+          Overview
+        </button>
+        <button
+          type="button"
+          className={`subtab-btn ${subTab === 'habits' ? 'active' : ''}`}
+          onClick={() => setSubTab('habits')}
+        >
+          <Target size={15} />
+          Habits
+        </button>
+        <button
+          type="button"
+          className={`subtab-btn ${subTab === 'wellness' ? 'active' : ''}`}
+          onClick={() => setSubTab('wellness')}
+        >
+          <Smile size={15} />
+          Wellness
+        </button>
       </div>
 
-      <div className="insight-grid">
-        <Metric icon={Flame} label="Current streak" value={`${streaks.current}d`} />
-        <Metric icon={BarChart3} label="Consistency" value={`${consistencyScore}%`} />
-        <Metric icon={Check} label="Perfect days" value={`${perfectDays}/7`} />
-      </div>
-
-      <div className="coach-focus-card">
-        <div className="section-heading">
-          <h2>Today's focus</h2>
-          <span>{riskHabits.length ? `${riskHabits.length} needs care` : 'Clear'}</span>
-        </div>
-        <p>{todayFocus}</p>
-        <small>{weeklyReview}</small>
-      </div>
-
-      <div className="social-insight-grid">
-        <Metric icon={Users} label="Active friends" value={`${socialInsights.activeFriendsToday}`} />
-        <Metric icon={Target} label="Circle momentum" value={`${socialInsights.circleMomentum}%`} />
-        <Metric icon={Inbox} label="Unread" value={`${socialInsights.unreadCount}`} />
-      </div>
-
-
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Momentum</h2>
-          <span>{lastThreeRate}%</span>
-        </div>
-        <div className="momentum-strip" aria-label="Last 14 days completion">
-          {recentKeys.map((dateKey) => {
-            const rate = dayRate(dateKey)
-            return (
-              <div className="momentum-day" key={dateKey}>
-                <span style={{ height: `${Math.max(8, rate)}%` }} />
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>This week</h2>
-          <span>{activeHabits.length} habits</span>
-        </div>
-        <div className="week-grid">
-          {weekKeys.map((dateKey, index) => {
-            const count = checkins.filter((checkin) => checkin.date === dateKey && activeHabits.some((habit) => habit.id === checkin.habitId)).length
-            const height = activeHabits.length ? Math.max(10, Math.round((count / activeHabits.length) * 54)) : 10
-
-            return (
-              <div className="week-day" key={dateKey}>
-                <div className="bar-track">
-                  <span style={{ height }} />
-                </div>
-                <small>{dateLabels[index]}</small>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>7-Day Matrix</h2>
-          <span>All habits</span>
-        </div>
-        <div className="habit-matrix">
-          <div className="matrix-header">
-            <div className="matrix-label"></div>
-            {currentSevenKeys.map((dateKey, index) => (
-              <div key={dateKey} className="matrix-day-label">{dateLabels[index]}</div>
-            ))}
+      {/* RENDER OVERVIEW SUB-TAB */}
+      {subTab === 'overview' && (
+        <div className="screen-stack animate-fade-up-stagger" style={{ animationDelay: '0.05s' }}>
+          <div className="insight-hero">
+            <div>
+              <p className="panel-kicker">{dashboardMood}</p>
+              <h2>{currentRate}%</h2>
+            </div>
+            <span className={trend >= 0 ? 'trend-pill positive' : 'trend-pill negative'}>
+              {trend >= 0 ? '+' : ''}
+              {trend}
+            </span>
           </div>
-          {activeHabits.map((habit) => (
-            <div className="matrix-row" key={habit.id}>
-              <div className="matrix-label">
-                <HabitIdentity habit={habit} />
-              </div>
-              {currentSevenKeys.map((dateKey) => {
-                const isDone = doneIdsForDate(dateKey).has(habit.id)
+
+          <div className="insight-grid">
+            <Metric icon={Flame} label="Current streak" value={`${streaks.current}d`} />
+            <Metric icon={BarChart3} label="Consistency" value={`${consistencyScore}%`} />
+            <Metric icon={Check} label="Perfect days" value={`${perfectDays}/7`} />
+          </div>
+
+          <div className="coach-focus-card">
+            <div className="section-heading">
+              <h2>Today's focus</h2>
+              <span>{riskHabits.length ? `${riskHabits.length} needs care` : 'Clear'}</span>
+            </div>
+            <p>{todayFocus}</p>
+            <small>{weeklyReview}</small>
+          </div>
+
+          <div className="social-insight-grid">
+            <Metric icon={Users} label="Active friends" value={`${socialInsights.activeFriendsToday}`} />
+            <Metric icon={Target} label="Circle momentum" value={`${socialInsights.circleMomentum}%`} />
+            <Metric icon={Inbox} label="Unread" value={`${socialInsights.unreadCount}`} />
+          </div>
+
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Rhythm</h2>
+              <span>{lastThreeRate}% Momentum</span>
+            </div>
+            <div className="momentum-strip" aria-label="Last 14 days completion">
+              {recentKeys.map((dateKey) => {
+                const rate = dayRate(dateKey)
                 return (
-                  <div key={`${habit.id}-${dateKey}`} className={`matrix-cell ${isDone ? `done ${habit.color}` : ''}`}>
-                    {isDone && <Check size={14} strokeWidth={3} />}
+                  <div className="momentum-day" key={dateKey}>
+                    <span style={{ height: `${Math.max(8, rate)}%` }} />
                   </div>
                 )
               })}
             </div>
-          ))}
-          {activeHabits.length === 0 && (
-            <p className="helper-copy" style={{ padding: '8px 0' }}>Add a habit to see your 7-day matrix.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="coach-grid">
-        <div className="coach-card">
-          <span>Best day</span>
-          <strong>{bestDay?.rate ? bestDay.dateKey.slice(5).replace('-', '/') : '—'}</strong>
-          <p>{bestDay?.rate ? `${bestDay.rate}%` : ''}</p>
-        </div>
-        <div className="coach-card">
-          <span>Best rhythm</span>
-          <strong>{bestWeekday?.rate ? bestWeekday.label : '—'}</strong>
-          <p>{bestWeekday?.rate ? `${bestWeekday.rate}%` : ''}</p>
-        </div>
-        <div className="coach-card">
-          <span>Needs attention</span>
-          <strong>{weakestWeekday?.rate ? weakestWeekday.label : focusHabit?.habit.name ?? '—'}</strong>
-          <p>{weakestWeekday?.rate ? `${weakestWeekday.rate}% rhythm` : focusHabit ? `${focusHabit.rate}%` : ''}</p>
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Risk radar</h2>
-          <span>{riskHabits.length ? 'Next best wins' : 'No red flags'}</span>
-        </div>
-        <div className="risk-list">
-          {riskHabits.length === 0 ? (
-            <InlineMessage message="Everything looks steady. Keep check-ins tiny and repeatable." />
-          ) : (
-            riskHabits.map(({ habit, rate, habitStreak, risk }) => (
-              <div className={`risk-row ${risk}`} key={habit.id}>
-                <HabitIdentity habit={habit} />
-                <span>{rate}%</span>
-                <small>{habitStreak}d streak</small>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Signals</h2>
-          <span>Coach notes</span>
-        </div>
-        <div className="signal-list">
-          <p>{moodInsight}</p>
-          <p>{hydrationInsight}</p>
-          <p>{socialInsights.circleCount ? `${socialInsights.circleCount} circle${socialInsights.circleCount === 1 ? '' : 's'} can help with accountability.` : 'Create a small circle when you want gentle accountability.'}</p>
-          <p>{socialInsights.cheersReceivedToday ? `${socialInsights.cheersReceivedToday} cheer${socialInsights.cheersReceivedToday === 1 ? '' : 's'} received today.` : 'Send a cheer to restart the social loop.'}</p>
-        </div>
-      </div>
-
-      <div className="panel-section">
-        <div className="section-heading">
-          <h2>Habit health</h2>
-          <span>Last 14 days</span>
-        </div>
-        <div className="habit-health-list">
-          {habitBreakdown.length === 0 ? (
-            <InlineMessage message="Your per-habit insight will appear after you add a habit." />
-          ) : (
-            habitBreakdown.map(({ habit, recentDone, rate, habitStreak, targetTotal }) => (
-              <div className="health-row" key={habit.id}>
-                <HabitIdentity habit={habit} />
-                <div className="health-meter" aria-label={`${habit.name} completion ${rate}%`}>
-                  <span style={{ width: `${rate}%` }} />
-                </div>
-                <strong>{rate}%</strong>
-                <small>
-                  {isWeeklyHabit(habit) ? `${recentDone}/${targetTotal} target` : `${recentDone}/14`} · {habitStreak}d streak
-                </small>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {activeHabits.length > 0 && (
-        <div className="insight-pair">
-          <div className="mini-insight">
-            <span>Strongest</span>
-            <strong>{strongestHabit?.habit.name ?? '—'}</strong>
-            <p>{strongestHabit ? `${strongestHabit.rate}%` : ''}</p>
           </div>
-          <div className="mini-insight">
-            <span>Focus</span>
-            <strong>{focusHabit?.habit.name ?? '—'}</strong>
-            <p>{focusHabit ? `${focusHabit.rate}%` : ''}</p>
+
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Weekly Trend</h2>
+              <span>{activeHabits.length} Active Habits</span>
+            </div>
+            <div className="week-grid">
+              {weekKeys.map((dateKey, index) => {
+                const count = checkins.filter(
+                  (checkin) =>
+                    checkin.date === dateKey && activeHabits.some((habit) => habit.id === checkin.habitId),
+                ).length
+                const height = activeHabits.length
+                  ? Math.max(10, Math.round((count / activeHabits.length) * 54))
+                  : 10
+
+                return (
+                  <div className="week-day" key={dateKey}>
+                    <div className="bar-track">
+                      <span style={{ height }} />
+                    </div>
+                    <small>{dateLabels[index]}</small>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <ActivityCalendar
+            activeHabits={activeHabits}
+            checkins={checkins}
+            moods={moods}
+            drinks={drinks}
+            memories={memories}
+            prefs={prefs}
+            onToggle={onToggle}
+            onSetMood={onSetMood}
+            onUpdateDrink={onUpdateDrink}
+            onSetMemory={onSetMemory}
+            doneIdsForDate={doneIdsForDate}
+          />
+        </div>
+      )}
+
+      {/* RENDER HABITS ANALYTICS SUB-TAB */}
+      {subTab === 'habits' && (
+        <div className="screen-stack animate-fade-up-stagger" style={{ animationDelay: '0.05s' }}>
+          {activeHabits.length > 0 && (
+            <div className="insight-pair">
+              <div className="mini-insight">
+                <span>Strongest Habit</span>
+                <strong>{strongestHabit?.habit.name ?? '—'}</strong>
+                <p>{strongestHabit ? `${strongestHabit.rate}% Completion` : ''}</p>
+              </div>
+              <div className="mini-insight">
+                <span>Focus Habit</span>
+                <strong>{focusHabit?.habit.name ?? '—'}</strong>
+                <p>{focusHabit ? `${focusHabit.rate}% Completion` : ''}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>7-Day Performance Grid</h2>
+              <span>All Habits Matrix</span>
+            </div>
+            <div className="matrix-scroll-wrapper">
+              <div className="habit-matrix">
+                <div className="matrix-header">
+                  <div className="matrix-label"></div>
+                  {currentSevenKeys.map((dateKey, index) => (
+                    <div key={dateKey} className="matrix-day-label">
+                      {dateLabels[index]}
+                    </div>
+                  ))}
+                </div>
+                {activeHabits.map((habit) => (
+                  <div className="matrix-row" key={habit.id}>
+                    <div className="matrix-label">
+                      <HabitIdentity habit={habit} />
+                    </div>
+                    {currentSevenKeys.map((dateKey) => {
+                      const isDone = doneIdsForDate(dateKey).has(habit.id)
+                      return (
+                        <div
+                          key={`${habit.id}-${dateKey}`}
+                          className={`matrix-cell ${isDone ? `done ${habit.color}` : ''}`}
+                        >
+                          {isDone && <Check size={14} strokeWidth={3} />}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+                {activeHabits.length === 0 && (
+                  <p className="helper-copy" style={{ padding: '8px 0' }}>
+                    Add a habit to see your 7-day performance grid.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="coach-grid">
+            <div className="coach-card">
+              <span>Best Day</span>
+              <strong>{bestDay?.rate ? bestDay.dateKey.slice(5).replace('-', '/') : '—'}</strong>
+              <p>{bestDay?.rate ? `${bestDay.rate}% checks` : ''}</p>
+            </div>
+            <div className="coach-card">
+              <span>Best Rhythm</span>
+              <strong>{bestWeekday?.rate ? bestWeekday.label : '—'}</strong>
+              <p>{bestWeekday?.rate ? `${bestWeekday.rate}% checks` : ''}</p>
+            </div>
+            <div className="coach-card">
+              <span>Attention Needed</span>
+              <strong>{weakestWeekday?.rate ? weakestWeekday.label : focusHabit?.habit.name ?? '—'}</strong>
+              <p>{weakestWeekday?.rate ? `${weakestWeekday.rate}% rhythm` : focusHabit ? `${focusHabit.rate}%` : ''}</p>
+            </div>
+          </div>
+
+          <div className="panel-section">
+            <div className="sort-control-container">
+              <span className="sort-label">Habit Health</span>
+              <div className="sort-btn-group">
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('rate-desc')}
+                  className={`sort-btn ${sortOrder === 'rate-desc' ? 'active' : ''}`}
+                >
+                  High
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('rate-asc')}
+                  className={`sort-btn ${sortOrder === 'rate-asc' ? 'active' : ''}`}
+                >
+                  Low
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder('name')}
+                  className={`sort-btn ${sortOrder === 'name' ? 'active' : ''}`}
+                >
+                  Name
+                </button>
+              </div>
+            </div>
+
+            <div className="habit-health-list">
+              {sortedBreakdown.length === 0 ? (
+                <InlineMessage message="Your per-habit insight will appear after you add a habit." />
+              ) : (
+                sortedBreakdown.map(({ habit, recentDone, rate, habitStreak, targetTotal }) => {
+                  const healthStatus = rate >= 80 ? 'thriving' : rate >= 50 ? 'stable' : 'needs-care'
+                  const healthText = rate >= 80 ? 'Thriving' : rate >= 50 ? 'Stable' : 'Needs Care'
+                  return (
+                    <div className="health-row" key={habit.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <HabitIdentity habit={habit} />
+                        <span className={`health-badge ${healthStatus}`}>{healthText}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+                        <div className="health-meter" aria-label={`${habit.name} completion ${rate}%`} style={{ flexGrow: 1, margin: 0 }}>
+                          <span className={habit.color} style={{ width: `${rate}%` }} />
+                        </div>
+                        <strong style={{ fontSize: '13px', width: '38px', textAlign: 'right' }}>{rate}%</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)' }}>
+                        <span>Streak: {habitStreak}d</span>
+                        <span>
+                          {isWeeklyHabit(habit) ? `${recentDone}/${targetTotal} target` : `${recentDone}/14 checks`}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Risk Radar</h2>
+              <span>Next Best Wins</span>
+            </div>
+            <div className="risk-list">
+              {riskHabits.length === 0 ? (
+                <InlineMessage message="Everything looks steady. Keep check-ins tiny and repeatable." />
+              ) : (
+                riskHabits.map(({ habit, rate, habitStreak, risk }) => (
+                  <div className={`risk-row ${risk}`} key={habit.id}>
+                    <HabitIdentity habit={habit} />
+                    <span>{rate}%</span>
+                    <small>{habitStreak}d streak</small>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      <ActivityCalendar
-        activeHabits={activeHabits}
-        checkins={checkins}
-        moods={moods}
-        drinks={drinks}
-        memories={memories}
-        prefs={prefs}
-        onToggle={onToggle}
-        onSetMood={onSetMood}
-        onUpdateDrink={onUpdateDrink}
-        onSetMemory={onSetMemory}
-        doneIdsForDate={doneIdsForDate}
-      />
+      {/* RENDER WELLNESS & JOURNAL SUB-TAB */}
+      {subTab === 'wellness' && (
+        <div className="screen-stack animate-fade-up-stagger" style={{ animationDelay: '0.05s' }}>
+          {/* Reflections summary card */}
+          <div className="coach-focus-card" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <div className="section-heading">
+              <h2>Mental Space</h2>
+              <span>{memories.length} notes</span>
+            </div>
+            <p style={{ fontSize: '14px', lineHeight: 1.5 }}>
+              You have kept exactly <strong>{memories.length} daily journals</strong> since beginning Bujo. Linking notes with daily checks establishes high self-awareness.
+            </p>
+          </div>
 
+          {/* Mood Distribution */}
+          <div className="wellness-distribution-card">
+            <span className="wellness-distribution-title">Mood Breakdown (Historical)</span>
+            <div className="wellness-bar-chart">
+              {totalMoodLogs > 0 ? (
+                <>
+                  <span
+                    className="wellness-bar-segment great"
+                    style={{ width: `${(moodCounts.great / totalMoodLogs) * 100}%` }}
+                    title={`Great: ${moodCounts.great}`}
+                  />
+                  <span
+                    className="wellness-bar-segment good"
+                    style={{ width: `${(moodCounts.good / totalMoodLogs) * 100}%` }}
+                    title={`Good: ${moodCounts.good}`}
+                  />
+                  <span
+                    className="wellness-bar-segment okay"
+                    style={{ width: `${(moodCounts.okay / totalMoodLogs) * 100}%` }}
+                    title={`Okay: ${moodCounts.okay}`}
+                  />
+                  <span
+                    className="wellness-bar-segment bad"
+                    style={{ width: `${(moodCounts.bad / totalMoodLogs) * 100}%` }}
+                    title={`Bad: ${moodCounts.bad}`}
+                  />
+                  <span
+                    className="wellness-bar-segment terrible"
+                    style={{ width: `${(moodCounts.terrible / totalMoodLogs) * 100}%` }}
+                    title={`Terrible: ${moodCounts.terrible}`}
+                  />
+                </>
+              ) : (
+                <span style={{ width: '100%', display: 'block', textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', lineHeight: '14px' }}>No moods logged yet</span>
+              )}
+            </div>
+            <div className="wellness-bar-legend" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+              <div className="wellness-legend-item">
+                <span className="wellness-legend-color-dot great" />
+                <span className="wellness-legend-label">Great</span>
+                <span className="wellness-legend-count">{moodCounts.great} ({totalMoodLogs ? Math.round((moodCounts.great / totalMoodLogs) * 100) : 0}%)</span>
+              </div>
+              <div className="wellness-legend-item">
+                <span className="wellness-legend-color-dot good" />
+                <span className="wellness-legend-label">Good</span>
+                <span className="wellness-legend-count">{moodCounts.good} ({totalMoodLogs ? Math.round((moodCounts.good / totalMoodLogs) * 100) : 0}%)</span>
+              </div>
+              <div className="wellness-legend-item">
+                <span className="wellness-legend-color-dot meh okay" style={{ background: '#f59e0b' }} />
+                <span className="wellness-legend-label">Okay</span>
+                <span className="wellness-legend-count">{moodCounts.okay} ({totalMoodLogs ? Math.round((moodCounts.okay / totalMoodLogs) * 100) : 0}%)</span>
+              </div>
+              <div className="wellness-legend-item">
+                <span className="wellness-legend-color-dot frown bad" style={{ background: '#f97316' }} />
+                <span className="wellness-legend-label">Bad</span>
+                <span className="wellness-legend-count">{moodCounts.bad} ({totalMoodLogs ? Math.round((moodCounts.bad / totalMoodLogs) * 100) : 0}%)</span>
+              </div>
+              <div className="wellness-legend-item">
+                <span className="wellness-legend-color-dot terrible" style={{ background: '#ef4444' }} />
+                <span className="wellness-legend-label">Terrible</span>
+                <span className="wellness-legend-count">{moodCounts.terrible} ({totalMoodLogs ? Math.round((moodCounts.terrible / totalMoodLogs) * 100) : 0}%)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Mood Trend for the last 7 days */}
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Reflective Trends</h2>
+              <span>Last 7 Days Moods</span>
+            </div>
+            <div className="wellness-trend-row">
+              {currentSevenKeys.map((dateKey, index) => {
+                const dayMood = moods.find((m) => m.date === dateKey)
+                let emoji = ''
+                if (dayMood?.value === 'great') emoji = '😄'
+                else if (dayMood?.value === 'good') emoji = '🙂'
+                else if (dayMood?.value === 'okay') emoji = '😐'
+                else if (dayMood?.value === 'bad') emoji = '🙁'
+                else if (dayMood?.value === 'terrible') emoji = '😭'
+
+                return (
+                  <div className="wellness-trend-cell" key={dateKey}>
+                    <span className="wellness-trend-day-lbl">{dateLabels[index]}</span>
+                    {emoji ? (
+                      <span className="wellness-trend-val">{emoji}</span>
+                    ) : (
+                      <span className="wellness-trend-val empty" title="No log" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Beverage Gauge */}
+          <div className="beverage-gauge-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>Beverage Intake Ratio</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{beverageTotals.water} cups water</span>
+            </div>
+            <div className="beverage-ratio-track">
+              {totalDrinksLogged > 0 ? (
+                <>
+                  <span
+                    className="beverage-ratio-segment water"
+                    style={{ width: `${(beverageTotals.water / totalDrinksLogged) * 100}%` }}
+                    title={`Water: ${beverageTotals.water}`}
+                  />
+                  <span
+                    className="beverage-ratio-segment coffee"
+                    style={{ width: `${(beverageTotals.coffee / totalDrinksLogged) * 100}%` }}
+                    title={`Coffee: ${beverageTotals.coffee}`}
+                  />
+                  <span
+                    className="beverage-ratio-segment softdrink"
+                    style={{ width: `${(beverageTotals.softdrink / totalDrinksLogged) * 100}%` }}
+                    title={`Softdrink: ${beverageTotals.softdrink}`}
+                  />
+                  <span
+                    className="beverage-ratio-segment wine"
+                    style={{ width: `${(beverageTotals.wine / totalDrinksLogged) * 100}%` }}
+                    title={`Wine: ${beverageTotals.wine}`}
+                  />
+                  <span
+                    className="beverage-ratio-segment alcohol"
+                    style={{ width: `${(beverageTotals.alcohol / totalDrinksLogged) * 100}%` }}
+                    title={`Alcohol: ${beverageTotals.alcohol}`}
+                  />
+                </>
+              ) : (
+                <span style={{ width: '100%', display: 'block', textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', lineHeight: '14px' }}>No drinks logged yet</span>
+              )}
+            </div>
+            <div className="beverage-legend">
+              <div className="beverage-legend-item">
+                <span className="beverage-legend-color water" />
+                <span className="beverage-legend-text">Water: <strong>{beverageTotals.water}</strong></span>
+              </div>
+              <div className="beverage-legend-item">
+                <span className="beverage-legend-color coffee" />
+                <span className="beverage-legend-text">Coffee: <strong>{beverageTotals.coffee}</strong></span>
+              </div>
+              <div className="beverage-legend-item">
+                <span className="beverage-legend-color softdrink" />
+                <span className="beverage-legend-text">Soda: <strong>{beverageTotals.softdrink}</strong></span>
+              </div>
+              <div className="beverage-legend-item">
+                <span className="beverage-legend-color wine" />
+                <span className="beverage-legend-text">Wine: <strong>{beverageTotals.wine}</strong></span>
+              </div>
+              <div className="beverage-legend-item">
+                <span className="beverage-legend-color alcohol" />
+                <span className="beverage-legend-text">Sober: <strong>{beverageTotals.alcohol}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Coach Wellness Signals */}
+          <div className="panel-section">
+            <div className="section-heading">
+              <h2>Signals & Diagnostics</h2>
+              <span>Coach Insights</span>
+            </div>
+            <div className="signal-list">
+              <p>{moodInsight}</p>
+              <p>{hydrationInsight}</p>
+              <p>
+                {socialInsights.circleCount
+                  ? `${socialInsights.circleCount} active accountability circle${
+                      socialInsights.circleCount === 1 ? '' : 's'
+                    } currently backing your progress.`
+                  : 'Join or create an accountability circle to share positive wellness loops.'}
+              </p>
+              <p>
+                {socialInsights.cheersReceivedToday
+                  ? `You received ${socialInsights.cheersReceivedToday} cheering notification${
+                      socialInsights.cheersReceivedToday === 1 ? '' : 's'
+                    } from friends today.`
+                  : 'Send cheers to circles to spark mutual positive support.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
