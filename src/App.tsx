@@ -117,7 +117,7 @@ import { useFriends } from './hooks/useFriends'
 import { dateFromKey, getDateKey, getRecentDateKeys, getWeekDateKeys } from './lib/dates'
 import { getHabitCadenceLabel, getHabitGoalProgress, getWindowGoalStats, isWeeklyHabit, normalizeWeeklyTarget, WEEKDAY_SHORT } from './lib/habitGoals'
 import { calculateStreaks } from './lib/habitStats'
-import { requestPushToken } from './lib/notifications'
+import { getNotificationHelpText, requestPushToken } from './lib/notifications'
 import { getUserTimeZone } from './lib/reminders'
 import { buildDashboardAnalytics, doneIdsForDate as getDoneIdsForDate } from './lib/dashboardAnalytics'
 import { getCircleMomentum } from './lib/social'
@@ -373,8 +373,10 @@ interface ActiveTimer {
   habitName: string
   color: HabitColor
   durationSeconds: number
-  remainingSeconds: number
+  accumulatedSeconds: number
+  startTime: number | null
   isRunning: boolean
+  remainingSeconds: number
 }
 
 function App() {
@@ -914,24 +916,65 @@ function TodayView({
   const progressPercent = Math.round(progress * 100)
   const weekKeys = useMemo(() => getWeekDateKeys(), [])
 
+  // Load saved timer from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bujo_active_timer')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed && typeof parsed === 'object' && parsed.habitId) {
+          setActiveTimer(parsed)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load active timer', e)
+    }
+  }, [])
+
+  // Save timer to localStorage on state change
+  useEffect(() => {
+    try {
+      if (activeTimer) {
+        localStorage.setItem('bujo_active_timer', JSON.stringify(activeTimer))
+      } else {
+        localStorage.removeItem('bujo_active_timer')
+      }
+    } catch (e) {
+      console.error('Failed to save active timer', e)
+    }
+  }, [activeTimer])
+
+  // Helper to dynamically calculate remaining seconds based on real system time
+  const getRemainingSeconds = useCallback((t: ActiveTimer | null) => {
+    if (!t) return 0
+    const elapsed = t.accumulatedSeconds + (t.isRunning && t.startTime ? Math.floor((Date.now() - t.startTime) / 1000) : 0)
+    return Math.max(0, t.durationSeconds - elapsed)
+  }, [])
+
+  // Dynamic system time checker to trigger UI updates and auto-completion
   useEffect(() => {
     if (!activeTimer?.isRunning) return
 
     const timerId = window.setInterval(() => {
-      setActiveTimer((current) => {
-        if (!current?.isRunning) return current
-
-        if (current.remainingSeconds <= 1) {
-          navigator.vibrate?.([12, 30, 12])
-          return { ...current, remainingSeconds: 0, isRunning: false }
-        }
-
-        return { ...current, remainingSeconds: current.remainingSeconds - 1 }
-      })
+      const remaining = getRemainingSeconds(activeTimer)
+      if (remaining <= 0) {
+        navigator.vibrate?.([12, 30, 12])
+        setActiveTimer((current) => current ? {
+          ...current,
+          accumulatedSeconds: current.durationSeconds,
+          startTime: null,
+          isRunning: false,
+          remainingSeconds: 0,
+        } : null)
+        window.clearInterval(timerId)
+      } else {
+        // Trigger a light state update to force re-render with updated dynamic system time
+        setActiveTimer((current) => current ? { ...current } : null)
+      }
     }, 1000)
 
     return () => window.clearInterval(timerId)
-  }, [activeTimer?.isRunning])
+  }, [activeTimer?.isRunning, activeTimer?.startTime, getRemainingSeconds])
 
   const startTimer = (habit: Habit) => {
     const durationSeconds = Math.max(1, habit.timerMinutes) * 60
@@ -940,8 +983,10 @@ function TodayView({
       habitName: habit.name,
       color: habit.color,
       durationSeconds,
-      remainingSeconds: durationSeconds,
+      accumulatedSeconds: 0,
+      startTime: Date.now(),
       isRunning: true,
+      remainingSeconds: durationSeconds,
     })
   }
 
@@ -1057,20 +1102,41 @@ function TodayView({
 
       {activeTimer && (
         <TimerPanel
-          timer={activeTimer}
+          timer={{
+            ...activeTimer,
+            remainingSeconds: getRemainingSeconds(activeTimer)
+          }}
           isCompleted={completedToday.has(activeTimer.habitId)}
-          onToggleRunning={() => setActiveTimer((current) => (current ? { ...current, isRunning: !current.isRunning } : current))}
-          onReset={() =>
-            setActiveTimer((current) =>
-              current
-                ? {
-                    ...current,
-                    remainingSeconds: current.durationSeconds,
-                    isRunning: true,
-                  }
-                : current,
-            )
-          }
+          onToggleRunning={() => {
+            setActiveTimer((current) => {
+              if (!current) return null
+              if (current.isRunning) {
+                const elapsedNow = current.startTime ? Math.floor((Date.now() - current.startTime) / 1000) : 0
+                return {
+                  ...current,
+                  accumulatedSeconds: current.accumulatedSeconds + elapsedNow,
+                  startTime: null,
+                  isRunning: false
+                }
+              } else {
+                return {
+                  ...current,
+                  startTime: Date.now(),
+                  isRunning: true
+                }
+              }
+            })
+          }}
+          onReset={() => {
+            setActiveTimer((current) => {
+              if (!current) return null
+              return {
+                ...current,
+                accumulatedSeconds: 0,
+                startTime: current.isRunning ? Date.now() : null,
+              }
+            })
+          }}
           onClose={() => setActiveTimer(null)}
           onComplete={async () => {
             const completed = completedToday.has(activeTimer.habitId)
@@ -3523,6 +3589,9 @@ function SettingsView({
           {prefs.enabled ? <BellOff size={20} /> : <Bell size={20} />}
           <span>{prefs.enabled ? 'Disable' : 'Enable'}</span>
         </button>
+        <p style={{ fontSize: '12px', marginTop: '8px', color: 'var(--muted)', lineHeight: '1.4' }}>
+          {getNotificationHelpText()}
+        </p>
       </div>
 
       {prefs.enabled && (
