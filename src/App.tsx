@@ -4410,19 +4410,465 @@ function AppIconMark() {
   )
 }
 
-function SignInScreen({ error, onSignIn }: { error: string | null; onSignIn: () => Promise<void> }) {
+type FocusPriority = 'consistency' | 'mindfulness' | 'hydration' | 'circles'
+type HabitsCount = '1-2' | '3-5' | '6-10' | '11+'
+
+interface OnboardingAnswers {
+  habitsCount?: HabitsCount
+  focusPriority?: FocusPriority
+}
+
+const HABIT_COUNT_OPTIONS = [
+  { id: '1-2' as HabitsCount, label: '1 - 2 Habits', sub: 'Focus on the essentials', icon: Sprout },
+  { id: '3-5' as HabitsCount, label: '3 - 5 Habits', sub: 'Balanced daily growth', icon: Target },
+  { id: '6-10' as HabitsCount, label: '6 - 10 Habits', sub: 'High performer routines', icon: Zap },
+  { id: '11+' as HabitsCount, label: '11+ Habits', sub: 'Complete routine reset', icon: Crown },
+]
+
+const FOCUS_PRIORITY_OPTIONS = [
+  { id: 'consistency' as FocusPriority, label: 'Consistency & Streaks', sub: 'Never break the chain', icon: Flame },
+  { id: 'mindfulness' as FocusPriority, label: 'Mindful Reflections', sub: 'Mood and micro-journals', icon: Brain },
+  { id: 'hydration' as FocusPriority, label: 'Clean Hydration & Habits', sub: 'Water and softdrink tracking', icon: Droplets },
+  { id: 'circles' as FocusPriority, label: 'Social & Circles', sub: 'Accountability with friends', icon: Users },
+]
+
+function estimateYearlyChecks(habitsCount: HabitsCount | undefined): number {
+  switch (habitsCount) {
+    case '1-2':
+      return 548 // ~1.5 habits * 365 days
+    case '3-5':
+      return 1460 // ~4 habits * 365 days
+    case '6-10':
+      return 2920 // ~8 habits * 365 days
+    case '11+':
+      return 4380 // ~12 habits * 365 days
+    default:
+      return 1000
+  }
+}
+
+function useAnimatedNumber(target: number, durationMs = 1200) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    let rafId = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / durationMs)
+      const eased = 1 - Math.pow(1 - t, 3) // cubic-bezier easeOut
+      setValue(Math.round(target * eased))
+      if (t < 1) {
+        rafId = requestAnimationFrame(tick)
+      }
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [target, durationMs])
+  return value
+}
+
+function getReflectionDetails(focus: FocusPriority | undefined) {
+  switch (focus) {
+    case 'mindfulness':
+      return {
+        icon: Brain,
+        title: 'Deep Mindful Reflection',
+        desc: 'Log daily moods and notes to track mental wellness trends. Bujo lets you log short memories for each day, connecting your mental headspace directly with your habit success.',
+        bulletTitle: 'HOW BUJO HELPS YOU REFLECT:',
+        bullets: [
+          'Log morning sleep quality & evening reviews',
+          'Quick 1-40 character daily micro-journal highlights',
+          'Interactive mood trend charts & streak rewards'
+        ]
+      }
+    case 'hydration':
+      return {
+        icon: Droplets,
+        title: 'Clean Body & Mind',
+        desc: 'Hydration tracking with customizable target cups. Restrict sodas or coffee while maintaining clean habits to ensure you operate at peak levels.',
+        bulletTitle: 'WHAT IS TRACKED AUTOMATICALLY:',
+        bullets: [
+          'Quick one-tap water cup logging',
+          'Separate targets for soda/alcohol/coffee limits',
+          'Earn water champion badges and health trophies'
+        ]
+      }
+    case 'circles':
+      return {
+        icon: Users,
+        title: 'Strength in Numbers',
+        desc: 'Join accountability Circles to share progress. Send friendly cheers or nudges to keep your friends on track. Share a secure profile QR and build custom micro-communities.',
+        bulletTitle: 'ACCELERATE YOUR SOCIAL MOTIVATION:',
+        bullets: [
+          'Share your unique QR code or friend link instantly',
+          'Send nudges and interactive cheers to circles',
+          'Set community goals with up to 100+ friends'
+        ]
+      }
+    case 'consistency':
+    default:
+      return {
+        icon: Flame,
+        title: 'Bulletproof Consistency',
+        desc: 'Visualise your chains. Check off habits to build solid streaks, earn premium trophies, and never break the chain. Bujo keeps your streaks alive even in the background.',
+        bulletTitle: 'ACCELERATE YOUR CONSISTENCY:',
+        bullets: [
+          'Visual streak counter with flame indicators',
+          'Background-persistent timers that never turn off',
+          '100+ unlockable high-fidelity trophies'
+        ]
+      }
+  }
+}
+
+function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
-    <div className="auth-screen">
-      <AppIconMark />
-      <p className="eyebrow">Bujo</p>
-      <h1>Small habits, beautifully kept.</h1>
-      <p>Sign in with Google to sync your routines, streaks, reminders, and timers.</p>
-      {error && <InlineMessage tone="warning" message={error} />}
-      <button className="google-button" type="button" onClick={onSignIn}>
-        <span aria-hidden="true">G</span>
-        Continue with Google
-        <ChevronRight size={19} />
+    <div className="onboarding-content-container animate-fade-up-stagger">
+      <div className="onboarding-eyebrow">
+        <Sparkles size={12} /> Introducing Bujo
+      </div>
+      <h1 className="onboarding-title">
+        Small habits, <span className="gradient-text">beautifully</span> kept.
+      </h1>
+      <p className="onboarding-desc">
+        Transform your daily routine into compound self-growth. Track habits, keep reflective journals, focus with timers, and share your path in private circles.
+      </p>
+
+      <div className="onboarding-feature-grid">
+        <div className="onboarding-feature-card">
+          <div className="onboarding-feature-icon-wrapper">
+            <Target size={20} />
+          </div>
+          <h3 className="onboarding-feature-title">Mindful Tracking</h3>
+          <p className="onboarding-feature-sub">Streaks & CADENCE</p>
+        </div>
+        <div className="onboarding-feature-card">
+          <div className="onboarding-feature-icon-wrapper">
+            <BookOpen size={20} />
+          </div>
+          <h3 className="onboarding-feature-title">Micro Journals</h3>
+          <p className="onboarding-feature-sub">Daily Memories</p>
+        </div>
+        <div className="onboarding-feature-card">
+          <div className="onboarding-feature-icon-wrapper">
+            <Timer size={20} />
+          </div>
+          <h3 className="onboarding-feature-title">Focus Timers</h3>
+          <p className="onboarding-feature-sub">Background Run</p>
+        </div>
+      </div>
+
+      <button type="button" onClick={onNext} className="onboarding-btn-primary">
+        Start Your Journey
+        <ChevronRight size={18} />
       </button>
+    </div>
+  )
+}
+
+function HabitsCountStep({
+  selected,
+  onSelect,
+}: {
+  selected: HabitsCount | undefined
+  onSelect: (val: HabitsCount) => void
+}) {
+  return (
+    <div className="onboarding-content-container animate-fade-up-stagger">
+      <h1 className="onboarding-title">How many habits do you want to track?</h1>
+      <p className="onboarding-desc">
+        A rough guess is perfect. We'll use this to estimate your self-improvement progress.
+      </p>
+
+      <div className="onboarding-chips-group">
+        {HABIT_COUNT_OPTIONS.map((opt) => {
+          const isSel = selected === opt.id
+          const IconComp = opt.icon
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onSelect(opt.id)}
+              className={`onboarding-chip-btn ${isSel ? 'selected' : ''}`}
+            >
+              <div className="onboarding-chip-icon">
+                <IconComp size={20} />
+              </div>
+              <div className="onboarding-chip-details">
+                <span className="onboarding-chip-label">{opt.label}</span>
+                <span className="onboarding-chip-sub">{opt.sub}</span>
+              </div>
+              <div className="onboarding-chip-check">
+                <Check size={12} strokeWidth={3} />
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function FocusPriorityStep({
+  selected,
+  onSelect,
+}: {
+  selected: FocusPriority | undefined
+  onSelect: (val: FocusPriority) => void
+}) {
+  return (
+    <div className="onboarding-content-container animate-fade-up-stagger">
+      <h1 className="onboarding-title">What is your primary focus right now?</h1>
+      <p className="onboarding-desc">
+        Pick your highest priority. We will tailor Bujo's tools to help you succeed here.
+      </p>
+
+      <div className="onboarding-chips-group">
+        {FOCUS_PRIORITY_OPTIONS.map((opt) => {
+          const isSel = selected === opt.id
+          const IconComp = opt.icon
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onSelect(opt.id)}
+              className={`onboarding-chip-btn ${isSel ? 'selected' : ''}`}
+            >
+              <div className="onboarding-chip-icon">
+                <IconComp size={20} />
+              </div>
+              <div className="onboarding-chip-details">
+                <span className="onboarding-chip-label">{opt.label}</span>
+                <span className="onboarding-chip-sub">{opt.sub}</span>
+              </div>
+              <div className="onboarding-chip-check">
+                <Check size={12} strokeWidth={3} />
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function AhaMomentStep({
+  habitsCount,
+  onNext,
+}: {
+  habitsCount: HabitsCount | undefined
+  onNext: () => void
+}) {
+  const yearlyTarget = estimateYearlyChecks(habitsCount)
+  const animatedNumber = useAnimatedNumber(yearlyTarget, 1200)
+
+  return (
+    <div className="onboarding-content-container animate-fade-up-stagger">
+      <div className="onboarding-eyebrow">
+        <Sparkles size={12} /> Compounding Effect
+      </div>
+      <h1 className="onboarding-title">Your Projected Compound Growth</h1>
+      <p className="onboarding-desc">
+        Every check-in is a vote for the person you want to become. Here is your estimated check-in volume:
+      </p>
+
+      <div className="onboarding-stat-card">
+        <span className="onboarding-stat-number">{animatedNumber.toLocaleString()}</span>
+        <span className="onboarding-stat-label">Estimated check-ins in your first year</span>
+        <span className="onboarding-stat-sub">Based on a consistent daily cadence</span>
+      </div>
+
+      <div className="onboarding-callout-card">
+        <div className="onboarding-callout-icon">
+          <Target size={18} />
+        </div>
+        <div className="onboarding-callout-text">
+          <span className="onboarding-callout-headline">Simple actions, grand results.</span>
+          <span className="onboarding-callout-desc">
+            With regular reminder alerts and native timers, keeping streaks becomes automatic.
+          </span>
+        </div>
+      </div>
+
+      <button type="button" onClick={onNext} className="onboarding-btn-primary">
+        See How Bujo Adapts
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  )
+}
+
+function ReflectionStep({
+  focusPriority,
+  onNext,
+}: {
+  focusPriority: FocusPriority | undefined
+  onNext: () => void
+}) {
+  const details = getReflectionDetails(focusPriority)
+  const IconComp = details.icon
+
+  return (
+    <div className="onboarding-content-container animate-fade-up-stagger">
+      <div className="onboarding-reflection-icon-hero">
+        <IconComp size={36} />
+      </div>
+      <h1 className="onboarding-title">{details.title}</h1>
+      <p className="onboarding-desc">{details.desc}</p>
+
+      <div className="onboarding-reflection-feature-list">
+        <h4 className="onboarding-reflection-list-title">{details.bulletTitle}</h4>
+        {details.bullets.map((bullet, idx) => (
+          <div key={idx} className="onboarding-reflection-item">
+            <Check size={16} className="onboarding-reflection-check" strokeWidth={3} />
+            <span>{bullet}</span>
+          </div>
+        ))}
+      </div>
+
+      <button type="button" onClick={onNext} className="onboarding-btn-primary">
+        Looks Perfect
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  )
+}
+
+function GoogleSignInStep({
+  error,
+  onSignIn,
+}: {
+  error: string | null
+  onSignIn: () => Promise<void>
+}) {
+  return (
+    <div className="onboarding-content-container animate-fade-up-stagger">
+      <AppIconMark />
+      <div className="onboarding-eyebrow" style={{ marginTop: 16 }}>
+        <Shield size={12} /> Secure Account Sync
+      </div>
+      <h1 className="onboarding-title">Create your private space.</h1>
+      <p className="onboarding-desc">
+        Sign in to enable automatic cloud backup, cross-device sync, circles, and persistent timers.
+      </p>
+
+      {error && <InlineMessage tone="warning" message={error} />}
+
+      <button className="onboarding-btn-primary" type="button" onClick={onSignIn} style={{ height: 52 }}>
+        <span aria-hidden="true" style={{
+          display: 'grid',
+          placeItems: 'center',
+          width: '26px',
+          aspectRatio: '1',
+          borderRadius: '50%',
+          color: '#fff',
+          background: 'rgba(255, 255, 255, 0.25)',
+          fontWeight: 800,
+          marginRight: '6px'
+        }}>G</span>
+        Continue with Google
+        <ChevronRight size={18} />
+      </button>
+
+      <div className="onboarding-security-row">
+        <span className="onboarding-security-badge">
+          <Check size={12} strokeWidth={3} /> Secure Firebase Sync
+        </span>
+        <span className="onboarding-security-badge">
+          <Check size={12} strokeWidth={3} /> 100% Private
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function SignInScreen({ error, onSignIn }: { error: string | null; onSignIn: () => Promise<void> }) {
+  const [step, setStep] = useState(0)
+  const [answers, setAnswers] = useState<OnboardingAnswers>({})
+
+  const onNext = () => setStep((s) => Math.min(5, s + 1))
+  const onBack = () => setStep((s) => Math.max(0, s - 1))
+  const onSkip = () => setStep(5)
+
+  const selectHabitsCount = (val: HabitsCount) => {
+    setAnswers((prev) => ({ ...prev, habitsCount: val }))
+    setTimeout(onNext, 350)
+  }
+
+  const selectFocusPriority = (val: FocusPriority) => {
+    setAnswers((prev) => ({ ...prev, focusPriority: val }))
+    setTimeout(onNext, 350)
+  }
+
+  return (
+    <div className="onboarding-wrapper">
+      <div className="floating-orbs" aria-hidden="true">
+        <div className="floating-orb floating-orb-1" />
+        <div className="floating-orb floating-orb-2" />
+        <div className="floating-orb floating-orb-3" />
+      </div>
+
+      <header className="onboarding-header">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={step === 0}
+          className="onboarding-back-btn"
+          aria-label="Previous step"
+        >
+          <ChevronLeft size={22} />
+        </button>
+
+        <div className="onboarding-progress-dots">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className={`onboarding-dot ${i === step ? 'active' : i < step ? 'completed' : ''}`}
+            />
+          ))}
+        </div>
+
+        {step < 5 ? (
+          <button type="button" onClick={onSkip} className="onboarding-skip-btn">
+            Skip
+          </button>
+        ) : (
+          <div style={{ width: 44 }} />
+        )}
+      </header>
+
+      <main className="onboarding-body">
+        {step === 0 && <WelcomeStep onNext={onNext} />}
+        {step === 1 && (
+          <HabitsCountStep
+            selected={answers.habitsCount}
+            onSelect={selectHabitsCount}
+          />
+        )}
+        {step === 2 && (
+          <FocusPriorityStep
+            selected={answers.focusPriority}
+            onSelect={selectFocusPriority}
+          />
+        )}
+        {step === 3 && (
+          <AhaMomentStep
+            habitsCount={answers.habitsCount}
+            onNext={onNext}
+          />
+        )}
+        {step === 4 && (
+          <ReflectionStep
+            focusPriority={answers.focusPriority}
+            onNext={onNext}
+          />
+        )}
+        {step === 5 && (
+          <GoogleSignInStep
+            error={error}
+            onSignIn={onSignIn}
+          />
+        )}
+      </main>
     </div>
   )
 }
