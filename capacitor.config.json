@@ -1,0 +1,6 @@
+{
+  "appId": "com.bujobloom.app",
+  "appName": "Bujo",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

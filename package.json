@@ -11,9 +11,15 @@
     "test": "vitest",
     "test:run": "vitest run",
     "functions:build": "npm --prefix functions run build",
-    "firebase:emulators": "firebase emulators:start --only auth,firestore,functions,hosting"
+    "firebase:emulators": "firebase emulators:start --only auth,firestore,functions,hosting",
+    "mobile:sync": "npx cap sync",
+    "mobile:open-ios": "npx cap open ios",
+    "mobile:build-ios": "npm run build && npx cap sync ios"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
     "date-fns": "^4.2.1",
     "firebase": "^12.13.0",
     "lucide-react": "^1.16.0",
