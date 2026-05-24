@@ -15,7 +15,7 @@ import {
 import { db } from '../lib/firebase'
 import { getDateKey } from '../lib/dates'
 import { normalizeWeeklyTarget } from '../lib/habitGoals'
-import { getPlatformHints } from '../lib/notifications'
+import { getPlatformHints, syncLocalNotifications } from '../lib/notifications'
 import { getUserTimeZone } from '../lib/reminders'
 import type { Checkin, DailyMemory, DrinkCheckin, Habit, MoodCheckin, MoodValue, NewHabitInput, NotificationPrefs, TimeOfDay, WeekDay } from '../types'
 
@@ -237,6 +237,12 @@ export function useBujoData(user: User | null) {
   }, [user])
 
   const activeHabits = useMemo(() => habits.filter((habit) => habit.active), [habits])
+
+  useEffect(() => {
+    if (habits.length > 0) {
+      syncLocalNotifications(habits)
+    }
+  }, [habits])
 
   const addHabit = useCallback(
     async (input: NewHabitInput) => {

@@ -3,6 +3,7 @@ import { getFirebaseMessaging } from './firebase'
 import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { FCM } from '@capacitor-community/fcm'
+import { LocalNotifications } from '@capacitor/local-notifications'
 
 export type PushResult =
   | { status: 'granted'; token: string }
@@ -172,5 +173,62 @@ export async function requestPushToken(): Promise<PushResult> {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to enable reminders right now.'
     return { status: 'error', message }
+  }
+}
+
+export async function syncLocalNotifications(habits: { id: string; name: string; active: boolean; reminderEnabled: boolean; reminderTime: string }[]) {
+  if (!Capacitor.isNativePlatform()) return
+
+  try {
+    // Check and request permissions
+    let perm = await LocalNotifications.checkPermissions()
+    if (perm.display !== 'granted') {
+      perm = await LocalNotifications.requestPermissions()
+    }
+
+    if (perm.display !== 'granted') {
+      console.warn('Local notifications permission denied.')
+      return
+    }
+
+    // Cancel all previously scheduled reminders to start clean
+    const pending = await LocalNotifications.getPending()
+    if (pending.notifications.length > 0) {
+      await LocalNotifications.cancel(pending)
+    }
+
+    const activeReminders = habits.filter(h => h.active && h.reminderEnabled)
+    if (activeReminders.length === 0) return
+
+    const notifications = activeReminders.map(habit => {
+      const [hourStr, minuteStr] = habit.reminderTime.split(':')
+      const hour = parseInt(hourStr, 10) || 20
+      const minute = parseInt(minuteStr, 10) || 0
+
+      // Generate integer id from string habit.id
+      let hash = 0
+      for (let i = 0; i < habit.id.length; i++) {
+        hash = habit.id.charCodeAt(i) + ((hash << 5) - hash)
+      }
+      const id = Math.abs(hash)
+
+      return {
+        id,
+        title: 'Bujo Habit Reminder',
+        body: `Time for ${habit.name}. A small check-in is waiting.`,
+        schedule: {
+          on: {
+            hour,
+            minute
+          }
+        },
+        sound: 'default'
+      }
+    })
+
+    await LocalNotifications.schedule({ notifications })
+    console.log(`Successfully scheduled ${notifications.length} local notifications natively!`)
+  } catch (err) {
+    console.error('Error syncing local notifications:', err)
   }
 }
