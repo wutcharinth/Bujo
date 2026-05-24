@@ -20,10 +20,12 @@
     "mobile:apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug && cp app/build/outputs/apk/debug/app-debug.apk ../bujo-debug.apk"
   },
   "dependencies": {
+    "@capacitor-community/fcm": "^8.1.0",
     "@capacitor/android": "^8.3.4",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
+    "@capacitor/push-notifications": "^8.1.1",
     "date-fns": "^4.2.1",
     "firebase": "^12.13.0",
     "lucide-react": "^1.16.0",

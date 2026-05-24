@@ -1,5 +1,8 @@
 import { getToken } from 'firebase/messaging'
 import { getFirebaseMessaging } from './firebase'
+import { Capacitor } from '@capacitor/core'
+import { PushNotifications } from '@capacitor/push-notifications'
+import { FCM } from '@capacitor-community/fcm'
 
 export type PushResult =
   | { status: 'granted'; token: string }
@@ -31,6 +34,10 @@ export function getPlatformHints() {
 }
 
 export function getNotificationHelpText() {
+  if (Capacitor.isNativePlatform()) {
+    return 'Reminders are fully supported natively. Tap the button to enable notifications for this device.'
+  }
+
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
     return 'This browser cannot receive push reminders, so Bujo will keep reminders inside the app.'
   }
@@ -47,6 +54,74 @@ export function getNotificationHelpText() {
 }
 
 export async function requestPushToken(): Promise<PushResult> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      let perm = await PushNotifications.checkPermissions()
+      if (perm.receive !== 'granted') {
+        perm = await PushNotifications.requestPermissions()
+      }
+
+      if (perm.receive !== 'granted') {
+        return {
+          status: 'denied',
+          message: 'Notification permission denied. Enable Bujo reminders in system Settings.',
+        }
+      }
+
+      // Register with Apple/Google push services (triggers APNs / FCM token generation)
+      await PushNotifications.register()
+
+      // Resolve the token dynamically via events
+      return new Promise<PushResult>(async (resolve) => {
+        let registrationListener: any = null
+        let errorListener: any = null
+
+        registrationListener = await PushNotifications.addListener('registration', async () => {
+          if (registrationListener) registrationListener.remove()
+          if (errorListener) errorListener.remove()
+          
+          try {
+            // Get the FCM token instead of the native APNs token
+            const result = await FCM.getToken()
+            if (result.token) {
+              resolve({ status: 'granted', token: result.token })
+            } else {
+              resolve({
+                status: 'error',
+                message: 'Native FCM token retrieved was empty.',
+              })
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Failed to retrieve native FCM token.'
+            resolve({ status: 'error', message: msg })
+          }
+        })
+
+        errorListener = await PushNotifications.addListener('registrationError', (error) => {
+          if (registrationListener) registrationListener.remove()
+          if (errorListener) errorListener.remove()
+          resolve({
+            status: 'error',
+            message: error.error || 'Failed to register native push tokens.',
+          })
+        })
+
+        // Backup safety timeout (12s)
+        setTimeout(() => {
+          if (registrationListener) registrationListener.remove()
+          if (errorListener) errorListener.remove()
+          resolve({
+            status: 'error',
+            message: 'APNs registration timed out. Please check your network connection.',
+          })
+        }, 12000)
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to register mobile notifications.'
+      return { status: 'error', message: msg }
+    }
+  }
+
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
     return {
       status: 'unsupported',
